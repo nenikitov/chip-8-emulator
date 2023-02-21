@@ -1,3 +1,6 @@
+use chip_8::processor::Processor;
+
 fn main() {
-    println!("Hello, world!");
+    let p = Processor::new();
+    println!("{:?}", p);
 }

@@ -22,15 +22,16 @@ const SIZE_DISPLAY: usize = 64 * 32;
 const SIZE_REGISTERS: usize = 16;
 
 
+#[derive(Debug)]
 pub struct Components {
-    ram: [u8; SIZE_RAM],
-    display: [bool; SIZE_DISPLAY],
-    stack: Vec<u16>,
-    program_couter: u16,
-    timer_delay: u8,
-    timer_sound: u8,
-    regiser_index: u16,
-    registers_general: [u16; 16]
+    pub ram: [u8; SIZE_RAM],
+    pub display: [bool; SIZE_DISPLAY],
+    pub stack: Vec<u16>,
+    pub program_couter: u16,
+    pub timer_delay: u8,
+    pub timer_sound: u8,
+    pub regiser_index: u16,
+    pub registers_general: [u16; 16]
 }
 
 impl Components {
@@ -49,8 +50,6 @@ impl Components {
         }
     }
 }
-
-
 
 
 #[cfg(test)]
