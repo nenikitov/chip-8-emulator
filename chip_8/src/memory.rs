@@ -18,15 +18,16 @@ const FONT: [u8; 16 * 5] = [
 ];
 
 const SIZE_RAM: usize = 4 * 1024;
-const SIZE_DISPLAY: usize = 64 * 32;
 const SIZE_REGISTERS: usize = 16;
+pub const SIZE_DISPLAY: (u16, u16) = (64, 32);
+pub const SIZE_DISPLAY_TOTAL: usize = (SIZE_DISPLAY.0 * SIZE_DISPLAY.1) as usize;
 pub const PROGRAM_START: u16 = 0x200;
 
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub struct Memory {
     pub ram: [u8; SIZE_RAM],
-    pub display: [bool; SIZE_DISPLAY],
+    pub display: [bool; SIZE_DISPLAY_TOTAL],
     pub stack: Vec<u16>,
     pub program_couter: u16,
     pub timer_delay: u8,
@@ -39,7 +40,7 @@ impl Memory {
     pub fn new() -> Self {
         let mut memory = Self {
             ram: [0; SIZE_RAM],
-            display: [false; SIZE_DISPLAY],
+            display: [false; SIZE_DISPLAY_TOTAL],
             stack: Vec::new(),
             program_couter: PROGRAM_START,
             timer_delay: 0,
@@ -75,7 +76,7 @@ fn memory_new_initializes_ram() {
 #[test]
 fn memory_new_initializes_display() {
     let m = Memory::new();
-    assert_eq!(m.display, [false; SIZE_DISPLAY]);
+    assert_eq!(m.display, [false; SIZE_DISPLAY_TOTAL]);
 }
 #[test]
 fn memory_new_initializes_stack() {
