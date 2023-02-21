@@ -40,7 +40,7 @@ impl Processor {
 
     pub fn fetch(&mut self) -> Instruction {
         let opcode = self.read_instruction_bytes();
-        let opcode = Self::split_instruction_bytes(opcode);
+        let opcode = Self::split_opcode(opcode);
         let (i, x, y, n, nn, nnn) = opcode.to_tuple();
         match (i, x, y, n) {
             (0x0, 0x0, 0xE, 0x0) => Instruction::ClearScreen,
@@ -63,7 +63,7 @@ impl Processor {
         ((byte_1 as u16) << 8) | (byte_2 as u16)
     }
 
-    fn split_instruction_bytes(bytes: u16) -> Opcode {
+    fn split_opcode(bytes: u16) -> Opcode {
         let i = ((bytes & 0xF000) >> 12) as usize;
         let x = ((bytes & 0x0F00) >> 8) as usize;
         let y = ((bytes & 0x00F0) >> 4) as usize;
@@ -77,13 +77,29 @@ impl Processor {
 
 
 #[test]
-fn split_instruction_bytes_splits_correctly() {
-    let bytes = Processor::split_instruction_bytes(0xD123);
-    assert_eq!(bytes.i, 0xD);
-    assert_eq!(bytes.x, 0x1);
-    assert_eq!(bytes.y, 0x2);
-    assert_eq!(bytes.n, 0x3);
-    assert_eq!(bytes.nn, 0x23);
-    assert_eq!(bytes.nnn, 0x123);
+fn split_opcode_splits() {
+    let opcode = Processor::split_opcode(0xD123);
+    assert_eq!(opcode.i, 0xD);
+    assert_eq!(opcode.x, 0x1);
+    assert_eq!(opcode.y, 0x2);
+    assert_eq!(opcode.n, 0x3);
+    assert_eq!(opcode.nn, 0x23);
+    assert_eq!(opcode.nnn, 0x123);
+}
+
+#[test]
+fn split_opcode_converts_to_tuple() {
+    let opcode = Processor::split_opcode(0xD123);
+    let (i, x, y, n, nn, nnn) = opcode.to_tuple();
+    assert_eq!(i, 0xD);
+    assert_eq!(x, 0x1);
+    assert_eq!(y, 0x2);
+    assert_eq!(n, 0x3);
+    assert_eq!(nn, 0x23);
+    assert_eq!(nnn, 0x123);
+}
+
+#[test]
+fn processor_fetches_the_instructions_correctly() {
 }
 
