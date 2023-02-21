@@ -1,6 +1,7 @@
-use chip_8::processor::Processor;
+use chip_8::Chip8;
 
 fn main() {
-    let p = Processor::new();
-    println!("{:?}", p);
+    let mut chip = Chip8::new();
+    chip.load(include_bytes!("../../roms/ibm.ch8"));
+    println!("{:?}", chip);
 }
