@@ -5,6 +5,6 @@ pub enum Instruction {
     RegisterSet { register: usize, value: u16 },
     RegisterAdd { register: usize, value: u16 },
     IndexSet { value: u16 },
-    Display { registerX: usize, registerY: usize, height: usize }
+    Display { register_x: usize, register_y: usize, height: usize },
 }
 

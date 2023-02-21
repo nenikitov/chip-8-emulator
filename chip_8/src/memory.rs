@@ -65,55 +65,50 @@ impl Memory {
 }
 
 
-#[cfg(test)]
-mod test {
-    use super::*;
+#[test]
+fn memory_new_initializes_ram() {
+    let m = Memory::new();
+    assert_eq!(m.ram[0..0x50], [0; 0x50]);
+    assert_eq!(m.ram[0x50..0xA0], FONT);
+    assert_eq!(m.ram[0xA0..SIZE_RAM], [0; SIZE_RAM - 0xA0]);
+}
+#[test]
+fn memory_new_initializes_display() {
+    let m = Memory::new();
+    assert_eq!(m.display, [false; SIZE_DISPLAY]);
+}
+#[test]
+fn memory_new_initializes_stack() {
+    let m = Memory::new();
+    assert_eq!(m.stack, [0; 0]);
+}
+#[test]
+fn memory_new_initializes_regitsers() {
+    let m = Memory::new();
+    assert_eq!(m.regiser_index, 0);
+    assert_eq!(m.registers_general, [0; SIZE_REGISTERS]);
+}
+#[test]
+fn memory_new_initializes_other() {
+    let m = Memory::new();
+    assert_eq!(m.program_couter, PROGRAM_START);
+    assert_eq!(m.timer_delay, 0);
+    assert_eq!(m.timer_sound, 0);
+}
 
-    #[test]
-    fn memory_new_initializes_ram() {
-        let m = Memory::new();
-        assert_eq!(m.ram[0..0x50], [0; 0x50]);
-        assert_eq!(m.ram[0x50..0xA0], FONT);
-        assert_eq!(m.ram[0xA0..SIZE_RAM], [0; SIZE_RAM - 0xA0]);
-    }
-    #[test]
-    fn memory_new_initializes_display() {
-        let m = Memory::new();
-        assert_eq!(m.display, [false; SIZE_DISPLAY]);
-    }
-    #[test]
-    fn memory_new_initializes_stack() {
-        let m = Memory::new();
-        assert_eq!(m.stack, [0; 0]);
-    }
-    #[test]
-    fn memory_new_initializes_regitsers() {
-        let m = Memory::new();
-        assert_eq!(m.regiser_index, 0);
-        assert_eq!(m.registers_general, [0; SIZE_REGISTERS]);
-    }
-    #[test]
-    fn memory_new_initializes_other() {
-        let m = Memory::new();
-        assert_eq!(m.program_couter, PROGRAM_START);
-        assert_eq!(m.timer_delay, 0);
-        assert_eq!(m.timer_sound, 0);
-    }
-
-    #[test]
-    fn memory_clear_resets() {
-        let empty = Memory::new();
-        let mut modified = Memory::new();
-        modified.ram[PROGRAM_START as usize] = 0xFF;
-        modified.display[10..1000].iter_mut().for_each(|e| *e = true);
-        modified.stack.push(0xFF);
-        modified.program_couter += 2;
-        modified.timer_delay = 10;
-        modified.timer_sound = 20;
-        modified.regiser_index = 1;
-        modified.registers_general.iter_mut().for_each(|e| *e = 5);
-        modified.clear();
-        assert_eq!(modified, empty);
-    }
+#[test]
+fn memory_clear_resets() {
+    let empty = Memory::new();
+    let mut modified = Memory::new();
+    modified.ram[PROGRAM_START as usize] = 0xFF;
+    modified.display[10..1000].iter_mut().for_each(|e| *e = true);
+    modified.stack.push(0xFF);
+    modified.program_couter += 2;
+    modified.timer_delay = 10;
+    modified.timer_sound = 20;
+    modified.regiser_index = 1;
+    modified.registers_general.iter_mut().for_each(|e| *e = 5);
+    modified.clear();
+    assert_eq!(modified, empty);
 }
 
