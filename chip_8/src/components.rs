@@ -19,7 +19,7 @@ const FONT: [u8; 16 * 5] = [
 
 const SIZE_RAM: usize = 4 * 1024;
 const SIZE_DISPLAY: usize = 64 * 32;
-const SIZE_REGISTERMS: usize = 16;
+const SIZE_REGISTERS: usize = 16;
 
 
 pub struct Components {
@@ -45,7 +45,7 @@ impl Components {
             timer_delay: 0,
             timer_sound: 0,
             regiser_index: 0,
-            registers_general: [0; SIZE_REGISTERMS]
+            registers_general: [0; SIZE_REGISTERS]
         }
     }
 }
@@ -58,11 +58,38 @@ mod test {
     use super::*;
 
     #[test]
-    fn components_initializes_ram_with_font() {
+    fn components_new_initializes_ram() {
         let c = Components::new();
         assert_eq!(c.ram[0..0x50], [0; 0x50]);
         assert_eq!(c.ram[0x50..0xA0], FONT);
         assert_eq!(c.ram[0xA0..SIZE_RAM], [0; SIZE_RAM - 0xA0]);
+    }
+
+    #[test]
+    fn components_new_initializes_display() {
+        let c = Components::new();
+        assert_eq!(c.display, [false; SIZE_DISPLAY]);
+    }
+
+    #[test]
+    fn components_new_initializes_stack() {
+        let c = Components::new();
+        assert_eq!(c.stack, [0; 0]);
+    }
+
+    #[test]
+    fn components_new_initializes_regitsers() {
+        let c = Components::new();
+        assert_eq!(c.regiser_index, 0);
+        assert_eq!(c.registers_general, [0; SIZE_REGISTERS]);
+    }
+
+    #[test]
+    fn components_new_initializes_other() {
+        let c = Components::new();
+        assert_eq!(c.program_couter, 0);
+        assert_eq!(c.timer_delay, 0);
+        assert_eq!(c.timer_sound, 0);
     }
 }
 
