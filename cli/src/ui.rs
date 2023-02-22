@@ -1,18 +1,19 @@
 use chip_8::Chip8;
 use crossterm::{
+    event::{self, Event, KeyCode, KeyEventKind},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}, event::{self, Event, KeyEventKind, KeyCode},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{
     io::{self, Write},
-    vec, collections::HashMap, iter,
+    iter, vec,
 };
 use tui::{
     backend::Backend,
     layout::{Alignment, Rect},
-    style::{Color, Style, Modifier},
-    text::{Span, Spans, Text},
-    widgets::{Paragraph, Wrap},
+    style::{Color, Style},
+    text::{Span, Spans},
+    widgets::Paragraph,
     Frame, Terminal,
 };
 
@@ -59,8 +60,7 @@ impl Drawable for SizeErrorBox {
     }
 }
 
-
-struct Chip8Display<'a>{
+struct Chip8Display<'a> {
     display: &'a [bool],
     display_width: u16,
     position: (u16, u16),
@@ -68,14 +68,10 @@ struct Chip8Display<'a>{
 impl<'a> Chip8Display<'a> {
     fn generate_style(top: bool, bottom: bool) -> Style {
         match (top, bottom) {
-            (false, false) =>
-                Style::default().fg(Color::Black).bg(Color::Black),
-            (false, true) =>
-                Style::default().fg(Color::Black).bg(Color::White),
-            (true, false) =>
-                Style::default().fg(Color::White).bg(Color::Black),
-            (true, true) =>
-                Style::default().fg(Color::White).bg(Color::White)
+            (false, false) => Style::default().fg(Color::Black).bg(Color::Black),
+            (false, true) => Style::default().fg(Color::Black).bg(Color::White),
+            (true, false) => Style::default().fg(Color::White).bg(Color::Black),
+            (true, true) => Style::default().fg(Color::White).bg(Color::White),
         }
     }
 
@@ -89,21 +85,18 @@ impl<'a> Chip8Display<'a> {
             // Row + row below values
             .map(|(i, j)| (self.display[i], self.display[j]))
             // Styled spans
-            .map(
-                |(t, b)|
-                Span::styled("▀", Self::generate_style(t, b))
-            )
+            .map(|(t, b)| Span::styled("▀", Self::generate_style(t, b)))
             .chain(iter::once(Span::raw("\n")))
             .collect()
     }
 }
 impl<'a> Drawable for Chip8Display<'a> {
     fn render<B: Backend>(&self, f: &mut Frame<B>) {
-        let display: Vec<Spans> =
-            (0..(self.display.chunks(self.display_width as usize).count() / 2))
-                .map(|r| self.generate_row(r * 2))
-                .map(|r| Spans::from(r))
-                .collect();
+        let display: Vec<Spans> = (0..(self.display.chunks(self.display_width as usize).count()
+            / 2))
+            .map(|r| self.generate_row(r * 2))
+            .map(|r| Spans::from(r))
+            .collect();
         let lines = display.len();
         f.render_widget(
             Paragraph::new(display),
@@ -111,18 +104,13 @@ impl<'a> Drawable for Chip8Display<'a> {
                 x: self.position.0,
                 y: self.position.1,
                 width: self.display_width,
-                height: lines as u16
+                height: lines as u16,
             },
         );
     }
 }
 
-
-#[derive(
-    Debug,
-    Clone, Copy,
-    PartialEq, PartialOrd, Eq
-)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq)]
 pub enum AppState {
     InProgress,
     End
@@ -147,9 +135,8 @@ impl App {
             if let Event::Key(key) = event {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
-                        KeyCode::Esc =>
-                            self.state = AppState::End,
-                        _ => ()
+                        KeyCode::Esc => self.state = AppState::End,
+                        _ => (),
                     }
                 }
             }
@@ -157,7 +144,7 @@ impl App {
 
         // TODO make this asynchronous
         for _ in 0..256 {
-           self.chip.advance();
+            self.chip.advance();
         }
     }
 
@@ -171,19 +158,21 @@ impl Drawable for App {
         let size = f.size();
         let (display_x, display_y) = self.chip.display_size();
         let display_y = display_y / 2;
-        if size.width <= display_x || size.height <= display_y {
+        if size.width < display_x || size.height < display_y {
             SizeErrorBox {
-                min_x: display_x + 1,
-                min_y: display_y + 1,
-            }.render(f);
+                min_x: display_x,
+                min_y: display_y,
+            }
+            .render(f);
         } else {
             let x = (size.width - display_x) / 2;
             let y = (size.height - display_y) / 2;
             Chip8Display {
                 display: self.chip.display(),
                 display_width: self.chip.display_size().0,
-                position: (x, y)
-            }.render(f)
+                position: (x, y),
+            }
+            .render(f)
         }
     }
 }
