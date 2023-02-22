@@ -5,12 +5,12 @@ use crossterm::{
 };
 use std::{
     io::{self, Write},
-    vec,
+    vec, collections::HashMap, iter,
 };
 use tui::{
     backend::Backend,
     layout::{Alignment, Rect},
-    style::{Color, Style},
+    style::{Color, Style, Modifier},
     text::{Span, Spans, Text},
     widgets::{Paragraph, Wrap},
     Frame, Terminal,
@@ -58,6 +58,65 @@ impl Drawable for SizeErrorBox {
         f.render_widget(paragraph, size);
     }
 }
+
+
+struct Chip8Display<'a>{
+    display: &'a [bool],
+    display_width: u16,
+    position: (u16, u16),
+}
+impl<'a> Chip8Display<'a> {
+    fn generate_style(top: bool, bottom: bool) -> Style {
+        match (top, bottom) {
+            (false, false) =>
+                Style::default().fg(Color::Black).bg(Color::Black),
+            (false, true) =>
+                Style::default().fg(Color::Black).bg(Color::White),
+            (true, false) =>
+                Style::default().fg(Color::White).bg(Color::Black),
+            (true, true) =>
+                Style::default().fg(Color::White).bg(Color::White)
+        }
+    }
+
+    fn generate_row(&self, row_index: usize) -> Vec<Span> {
+        // Row indexes
+        (0..self.display_width as usize)
+            // Current row
+            .map(|i| i + row_index * self.display_width as usize)
+            // Row + row below indexes
+            .map(|i| (i, i + self.display_width as usize))
+            // Row + row below values
+            .map(|(i, j)| (self.display[i], self.display[j]))
+            // Styled spans
+            .map(
+                |(t, b)|
+                Span::styled("▀", Self::generate_style(t, b))
+            )
+            .chain(iter::once(Span::raw("\n")))
+            .collect()
+    }
+}
+impl<'a> Drawable for Chip8Display<'a> {
+    fn render<B: Backend>(&self, f: &mut Frame<B>) {
+        let display: Vec<Spans> =
+            (0..(self.display.chunks(self.display_width as usize).count() / 2))
+                .map(|r| self.generate_row(r * 2))
+                .map(|r| Spans::from(r))
+                .collect();
+        let lines = display.len();
+        f.render_widget(
+            Paragraph::new(display),
+            Rect {
+                x: self.position.0,
+                y: self.position.1,
+                width: self.display_width,
+                height: lines as u16
+            },
+        );
+    }
+}
+
 
 #[derive(
     Debug,
@@ -111,33 +170,20 @@ impl Drawable for App {
     fn render<B: Backend>(&self, f: &mut Frame<B>) {
         let size = f.size();
         let (display_x, display_y) = self.chip.display_size();
+        let display_y = display_y / 2;
         if size.width <= display_x || size.height <= display_y {
             SizeErrorBox {
                 min_x: display_x + 1,
                 min_y: display_y + 1,
-            }
-            .render(f);
+            }.render(f);
         } else {
-            let display =
-                self.chip.display().chunks(display_x as usize)
-                .map(
-                    |r|
-                    r.iter().map(|p| if *p { '█' } else { ' ' }).collect::<String>()
-                )
-                .collect::<Vec<_>>()
-                .join("\n");
-            let display = Paragraph::new(Text::from(display));
             let x = (size.width - display_x) / 2;
             let y = (size.height - display_y) / 2;
-            f.render_widget(
-                display,
-                Rect {
-                    x,
-                    y,
-                    width: display_x,
-                    height: display_y,
-                },
-            );
+            Chip8Display {
+                display: self.chip.display(),
+                display_width: self.chip.display_size().0,
+                position: (x, y)
+            }.render(f)
         }
     }
 }
