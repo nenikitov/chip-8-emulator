@@ -7,4 +7,6 @@ edition = "2021"
 
 [dependencies]
 chip_8 = { path = "../chip_8" }
+tui = "0.19"
+crossterm = "0.25"
 

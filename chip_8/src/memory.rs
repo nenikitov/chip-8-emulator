@@ -29,10 +29,10 @@ pub struct Memory {
     pub ram: [u8; SIZE_RAM],
     pub display: [bool; SIZE_DISPLAY_TOTAL],
     pub stack: Vec<u16>,
-    pub program_couter: u16,
+    pub program_counter: u16,
     pub timer_delay: u8,
     pub timer_sound: u8,
-    pub regiser_index: u16,
+    pub register_index: u16,
     pub registers_general: [u16; 16]
 }
 
@@ -42,10 +42,10 @@ impl Memory {
             ram: [0; SIZE_RAM],
             display: [false; SIZE_DISPLAY_TOTAL],
             stack: Vec::new(),
-            program_couter: PROGRAM_START,
+            program_counter: PROGRAM_START,
             timer_delay: 0,
             timer_sound: 0,
-            regiser_index: 0,
+            register_index: 0,
             registers_general: [0; SIZE_REGISTERS]
         };
         memory.clear();
@@ -58,10 +58,10 @@ impl Memory {
         self.display.iter_mut().for_each(|e| *e = false);
         self.stack.clear();
         self.registers_general.iter_mut().for_each(|e| *e = 0);
-        self.program_couter = PROGRAM_START;
+        self.program_counter = PROGRAM_START;
         self.timer_delay = 0;
         self.timer_sound = 0;
-        self.regiser_index = 0;
+        self.register_index = 0;
     }
 }
 
@@ -86,13 +86,13 @@ fn memory_new_initializes_stack() {
 #[test]
 fn memory_new_initializes_regitsers() {
     let m = Memory::new();
-    assert_eq!(m.regiser_index, 0);
+    assert_eq!(m.register_index, 0);
     assert_eq!(m.registers_general, [0; SIZE_REGISTERS]);
 }
 #[test]
 fn memory_new_initializes_other() {
     let m = Memory::new();
-    assert_eq!(m.program_couter, PROGRAM_START);
+    assert_eq!(m.program_counter, PROGRAM_START);
     assert_eq!(m.timer_delay, 0);
     assert_eq!(m.timer_sound, 0);
 }
@@ -104,10 +104,10 @@ fn memory_clear_resets() {
     modified.ram[PROGRAM_START as usize] = 0xFF;
     modified.display[10..1000].iter_mut().for_each(|e| *e = true);
     modified.stack.push(0xFF);
-    modified.program_couter += 2;
+    modified.program_counter += 2;
     modified.timer_delay = 10;
     modified.timer_sound = 20;
-    modified.regiser_index = 1;
+    modified.register_index = 1;
     modified.registers_general.iter_mut().for_each(|e| *e = 5);
     modified.clear();
     assert_eq!(modified, empty);
