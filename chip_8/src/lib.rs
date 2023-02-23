@@ -1,5 +1,4 @@
 mod memory;
-mod processor;
 mod chip_8;
 mod instruction;
 
