@@ -1,12 +1,12 @@
 use chip_8::Chip8;
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEventKind},
+    event::{self, Event, KeyCode, KeyEventKind, poll},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{
     io::{self, Write},
-    iter, vec,
+    iter, vec, time::Duration,
 };
 use tui::{
     backend::Backend,
@@ -17,8 +17,11 @@ use tui::{
     Frame, Terminal,
 };
 
+use crate::timer::Timer;
+
 pub trait Drawable {
-    fn render<B: Backend>(&self, f: &mut Frame<B>);
+    fn render<B: Backend>(&self, f: &mut Frame<B>, position: (u16, u16));
+    fn size(&self) -> (u16, u16);
 }
 
 struct SizeErrorBox {
@@ -26,7 +29,7 @@ struct SizeErrorBox {
     min_y: u16,
 }
 impl Drawable for SizeErrorBox {
-    fn render<B: Backend>(&self, f: &mut Frame<B>) {
+    fn render<B: Backend>(&self, f: &mut Frame<B>, _: (u16, u16)) {
         let size = f.size();
         let color_x = if size.width < self.min_x {
             Color::LightRed
@@ -58,11 +61,14 @@ impl Drawable for SizeErrorBox {
             .alignment(Alignment::Center);
         f.render_widget(paragraph, size);
     }
+
+    fn size(&self) -> (u16, u16) {
+        (0, 0)
+    }
 }
 
 struct Chip8Display<'a> {
     display: &'a [&'a [bool]],
-    position: (u16, u16),
 }
 impl<'a> Chip8Display<'a> {
     fn display_size(&self) -> (u16, u16) {
@@ -82,7 +88,7 @@ impl<'a> Chip8Display<'a> {
     }
 }
 impl<'a> Drawable for Chip8Display<'a> {
-    fn render<B: Backend>(&self, f: &mut Frame<B>) {
+    fn render<B: Backend>(&self, f: &mut Frame<B>, position: (u16, u16)) {
         let display_size = self.display_size();
         let display: Vec<Spans> =
             // Take every 2 rows
@@ -103,14 +109,45 @@ impl<'a> Drawable for Chip8Display<'a> {
         f.render_widget(
             Paragraph::new(display),
             Rect {
-                x: self.position.0,
-                y: self.position.1,
+                x: position.0,
+                y: position.1,
                 width: display_size.0,
                 height: display_size.1 / 2,
             },
         );
     }
+
+    fn size(&self) -> (u16, u16) {
+        let size = self.display_size();
+        (size.0, size.1 / 2)
+    }
 }
+
+
+struct InstructionsPerSecond<'a> {
+    timer: &'a Timer,
+    instructions_per_loop: u32,
+}
+impl<'a> Drawable for InstructionsPerSecond<'a> {
+    fn render<B: Backend>(&self, f: &mut Frame<B>, position: (u16, u16)) {
+        let size = f.size();
+        let instructions = (1f64 / self.timer.delta().as_secs_f64()) * self.instructions_per_loop as f64;
+        f.render_widget(
+            Paragraph::new(format!("{} i/s", instructions.round())).alignment(Alignment::Right),
+            Rect {
+                x: position.0,
+                y: position.1,
+                width: size.width,
+                height: size.height
+            }
+        )
+    }
+
+    fn size(&self) -> (u16, u16) {
+        (0, 1)
+    }
+}
+
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq)]
 pub enum AppState {
@@ -121,33 +158,44 @@ pub enum AppState {
 #[derive(Debug)]
 pub struct App {
     chip: Chip8,
-    state: AppState
+    state: AppState,
+    timer: Timer,
+    instructions_per_loop: u32
 }
 
 impl App {
     pub fn new(chip: Chip8) -> Self {
         Self {
             chip,
-            state: AppState::InProgress
+            state: AppState::InProgress,
+            timer: Timer::new(),
+            instructions_per_loop: 1
         }
     }
 
-    pub fn update(&mut self) {
-        if let Ok(event) = event::read() {
-            if let Event::Key(key) = event {
-                if key.kind == KeyEventKind::Press {
-                    match key.code {
-                        KeyCode::Esc => self.state = AppState::End,
-                        _ => (),
-                    }
+    fn handle_input(&mut self) -> crossterm::Result<bool> {
+        if poll(Duration::from_secs(0))? {
+            let key = event::read()?;
+            if let Event::Key(key) = key {
+                match (key.kind, key.code) {
+                    (KeyEventKind::Press, KeyCode::Esc) =>
+                        self.state = AppState::End,
+                    _ => ()
                 }
             }
         }
+        Ok(true)
+    }
 
-        // TODO make this asynchronous
-        for _ in 0..256 {
-            self.chip.advance();
+    pub fn update(&mut self) {
+        if let Err(e) = self.handle_input() {
+            self.state = AppState::End;
+            println!("Error reading from input {}", e);
         }
+
+        self.chip.advance();
+
+        self.timer.update();
     }
 
     pub fn state(&self) -> AppState {
@@ -156,26 +204,51 @@ impl App {
 }
 
 impl Drawable for App {
-    fn render<B: Backend>(&self, f: &mut Frame<B>) {
+    fn render<B: Backend>(&self, f: &mut Frame<B>, _: (u16, u16)) {
         let size = f.size();
+
         let display = self.chip.display();
         let (display_x, display_y) = (display[0].len() as u16, display.len() as u16);
         let display_y = display_y / 2;
-        if size.width < display_x || size.height < display_y {
+
+        let widget_instructions = InstructionsPerSecond {
+            timer: &self.timer,
+            instructions_per_loop: self.instructions_per_loop
+        };
+
+        let widget_display = Chip8Display {
+            display: &display,
+        };
+
+        let minimum_x = widget_display.size().0;
+        let minimum_y = widget_display.size().1 + widget_instructions.size().1 + 1;
+
+        if size.width < minimum_x || size.height < minimum_y {
             SizeErrorBox {
-                min_x: display_x,
-                min_y: display_y,
+                min_x: minimum_x,
+                min_y: minimum_y,
             }
-            .render(f);
+            .render(
+                f,
+                (0, 0)
+            );
         } else {
-            let x = (size.width - display_x) / 2;
-            let y = (size.height - display_y) / 2;
-            Chip8Display {
-                display: &display,
-                position: (x, y)
-            }
-            .render(f)
+            widget_display.render(
+                f,
+                (
+                    (size.width - display_x) / 2 + widget_instructions.size().1,
+                    (size.height - display_y) / 2
+                )
+            );
+            widget_instructions.render(
+                f,
+                (0, 0)
+            );
         }
+    }
+
+    fn size(&self) -> (u16, u16) {
+        (0, 0)
     }
 }
 

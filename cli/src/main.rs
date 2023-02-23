@@ -1,4 +1,5 @@
 mod ui;
+mod timer;
 
 use std::io;
 
@@ -20,7 +21,7 @@ fn main() -> Result<(), i32> {
     let mut app = ui::App::new(chip);
 
     loop {
-        terminal.draw(|f| app.render(f)).unwrap();
+        terminal.draw(|f| app.render(f, (0, 0))).unwrap();
         app.update();
 
         match app.state() {
