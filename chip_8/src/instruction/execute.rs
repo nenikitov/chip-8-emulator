@@ -12,30 +12,30 @@ pub trait InstructionExecutable {
 impl InstructionExecutable for Instruction {
     fn execute(&self, memory: &mut Memory) {
         match *self {
-            Instruction::CallMachineCode { address: _ } => {
+            Instruction::System { address: _ } => {
                 unimplemented!("Executing machine code is not supported")
             },
             Instruction::DisplayClear => {
-                memory.display.iter_mut().for_each(|e| *e = false)
+                memory.vram.iter_mut().for_each(|e| *e = false)
             },
-            Instruction::FlowJump { address } => {
-                memory.program_counter = address;
+            Instruction::Jump { address } => {
+                memory.pc = address;
             },
-            Instruction::RegisterSet { register, value } => {
-                memory.registers_general[register] = value;
+            Instruction::LoadVxValue { register, value } => {
+                memory.v[register] = value;
             },
-            Instruction::RegisterAdd { register, value } => {
-                memory.registers_general[register] = memory.registers_general[register].wrapping_add(value);
+            Instruction::AddVxValue { register, value } => {
+                memory.v[register] = memory.v[register].wrapping_add(value);
             },
-            Instruction::IndexSet { value } => {
-                memory.register_index = value;
+            Instruction::LoadIValue { value } => {
+                memory.i = value;
             },
             Instruction::DisplayDraw { register_x, register_y, height } => {
-                let x = memory.registers_general[register_x] % SIZE_DISPLAY.0;
-                let y = memory.registers_general[register_y] % SIZE_DISPLAY.1;
-                memory.registers_general[0xF] = 0;
+                let x = memory.v[register_x] % SIZE_DISPLAY.0;
+                let y = memory.v[register_y] % SIZE_DISPLAY.1;
+                memory.v[0xF] = 0;
                 'rows: for r in 0..(height) {
-                    let row = memory.ram[(memory.register_index + r) as usize];
+                    let row = memory.ram[(memory.i + r) as usize];
                     'pixels: for p in 0..8 {
                         let pixel = row & (1 << (7 - p));
                         let pixel = pixel != 0;
@@ -45,9 +45,9 @@ impl InstructionExecutable for Instruction {
                             if x >= SIZE_DISPLAY.0 { break 'pixels; }
                             if y >= SIZE_DISPLAY.1 { break 'rows; }
                             let pos = coords_to_i(x as usize, y as usize);
-                            memory.display[pos] ^= pixel;
-                            if !memory.display[pos] {
-                                memory.registers_general[0xF] = 1;
+                            memory.vram[pos] ^= pixel;
+                            if !memory.vram[pos] {
+                                memory.v[0xF] = 1;
                             }
                         }
                     }
@@ -60,91 +60,91 @@ impl InstructionExecutable for Instruction {
 
 #[test]
 #[should_panic(expected = "not implemented: Executing machine code is not supported")]
-fn instruction_executes_on_memory_machine_code_panics() {
+fn instruction_execute_system_panics() {
     let mut m = Memory::new();
-    Instruction::CallMachineCode { address: 0x123 }.execute(&mut m);
+    Instruction::System { address: 0x123 }.execute(&mut m);
 }
 
 #[test]
-fn instruction_executes_on_memory_display_clear() {
+fn instruction_execute_display_clear() {
     let mut m = Memory::new();
-    m.display.iter_mut().for_each(|e| *e = true);
+    m.vram.iter_mut().for_each(|e| *e = true);
 
     Instruction::DisplayClear.execute(&mut m);
 
-    assert_eq!(m.display, [false; SIZE_DISPLAY_TOTAL]);
+    assert_eq!(m.vram, [false; SIZE_DISPLAY_TOTAL]);
 }
 
 #[test]
-fn instruction_executes_on_memory_flow_jump() {
+fn instruction_execute_jump() {
     let mut m = Memory::new();
 
-    Instruction::FlowJump { address: 0x123 }.execute(&mut m);
+    Instruction::Jump { address: 0x123 }.execute(&mut m);
 
-    assert_eq!(m.program_counter, 0x123);
+    assert_eq!(m.pc, 0x123);
 }
 
 #[test]
-fn instruction_executes_on_memory_register_set() {
+fn instruction_execute_load_vx_value() {
     let mut m = Memory::new();
 
-    Instruction::RegisterSet { register: 5, value: 0x32 }.execute(&mut m);
+    Instruction::LoadVxValue { register: 5, value: 0x32 }.execute(&mut m);
 
-    assert_eq!(m.registers_general[5], 0x32);
+    assert_eq!(m.v[5], 0x32);
 }
 
 #[test]
-fn instruction_executes_on_memory_register_add() {
+fn instruction_execute_add_vx_value() {
     let mut m = Memory::new();
-    m.registers_general[4] = 1;
+    m.v[4] = 1;
 
-    Instruction::RegisterAdd { register: 4, value: 0x33 }.execute(&mut m);
+    Instruction::AddVxValue { register: 4, value: 0x33 }.execute(&mut m);
 
-    assert_eq!(m.registers_general[4], 0x34);
+    assert_eq!(m.v[4], 0x34);
 }
 
 #[test]
-fn instruction_executes_on_memory_index_set() {
+fn instruction_execute_load_i_value() {
     let mut m = Memory::new();
 
-    Instruction::IndexSet { value: 0x123 }.execute(&mut m);
+    Instruction::LoadIValue { value: 0x123 }.execute(&mut m);
 
-    assert_eq!(m.register_index, 0x123);
+    assert_eq!(m.i, 0x123);
 }
 
 #[test]
-fn instruction_executes_on_memory_display_draw() {
+fn instruction_execute_display_draw() {
     let mut m = Memory::new();
-    m.register_index = 0;
+    m.i = 0;
     m.ram[0] = 0b10111111;
     m.ram[1] = 0b01001001;
-    m.registers_general[4] = 1;
-    m.registers_general[6] = 2;
-    m.display[coords_to_i(1, 2)] = true;
-    m.display[coords_to_i(2, 2)] = true;
-    m.display[coords_to_i(3, 2)] = true;
-    m.display[coords_to_i(1, 3)] = true;
-    m.display[coords_to_i(2, 3)] = true;
-    m.display[coords_to_i(3, 3)] = true;
+    m.v[4] = 1;
+    m.v[6] = 2;
+    m.vram[coords_to_i(1, 2)] = true;
+    m.vram[coords_to_i(2, 2)] = true;
+    m.vram[coords_to_i(3, 2)] = true;
+    m.vram[coords_to_i(1, 3)] = true;
+    m.vram[coords_to_i(2, 3)] = true;
+    m.vram[coords_to_i(3, 3)] = true;
 
     Instruction::DisplayDraw { register_x: 4, register_y: 6, height: 2 }.execute(&mut m);
 
-    assert_eq!(m.display[coords_to_i(1, 2)], false);
-    assert_eq!(m.display[coords_to_i(2, 2)], true);
-    assert_eq!(m.display[coords_to_i(3, 2)], false);
-    assert_eq!(m.display[coords_to_i(4, 2)], true);
-    assert_eq!(m.display[coords_to_i(5, 2)], true);
-    assert_eq!(m.display[coords_to_i(6, 2)], true);
-    assert_eq!(m.display[coords_to_i(7, 2)], true);
-    assert_eq!(m.display[coords_to_i(8, 2)], true);
-    assert_eq!(m.display[coords_to_i(1, 3)], true);
-    assert_eq!(m.display[coords_to_i(2, 3)], false);
-    assert_eq!(m.display[coords_to_i(3, 3)], true);
-    assert_eq!(m.display[coords_to_i(4, 3)], false);
-    assert_eq!(m.display[coords_to_i(5, 3)], true);
-    assert_eq!(m.display[coords_to_i(6, 3)], false);
-    assert_eq!(m.display[coords_to_i(7, 3)], false);
-    assert_eq!(m.display[coords_to_i(8, 3)], true);
-    assert_eq!(m.registers_general[0xF], 1);
+    assert_eq!(m.vram[coords_to_i(1, 2)], false);
+    assert_eq!(m.vram[coords_to_i(2, 2)], true);
+    assert_eq!(m.vram[coords_to_i(3, 2)], false);
+    assert_eq!(m.vram[coords_to_i(4, 2)], true);
+    assert_eq!(m.vram[coords_to_i(5, 2)], true);
+    assert_eq!(m.vram[coords_to_i(6, 2)], true);
+    assert_eq!(m.vram[coords_to_i(7, 2)], true);
+    assert_eq!(m.vram[coords_to_i(8, 2)], true);
+    assert_eq!(m.vram[coords_to_i(1, 3)], true);
+    assert_eq!(m.vram[coords_to_i(2, 3)], false);
+    assert_eq!(m.vram[coords_to_i(3, 3)], true);
+    assert_eq!(m.vram[coords_to_i(4, 3)], false);
+    assert_eq!(m.vram[coords_to_i(5, 3)], true);
+    assert_eq!(m.vram[coords_to_i(6, 3)], false);
+    assert_eq!(m.vram[coords_to_i(7, 3)], false);
+    assert_eq!(m.vram[coords_to_i(8, 3)], true);
+    assert_eq!(m.v[0xF], 1);
 }
 

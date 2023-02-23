@@ -207,7 +207,7 @@ impl Drawable for App {
     fn render<B: Backend>(&self, f: &mut Frame<B>, _: (u16, u16)) {
         let size = f.size();
 
-        let display = self.chip.display();
+        let display = self.chip.screen();
         let (display_x, display_y) = (display[0].len() as u16, display.len() as u16);
         let display_y = display_y / 2;
 
