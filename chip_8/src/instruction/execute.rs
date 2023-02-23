@@ -21,18 +21,18 @@ impl InstructionExecutable for Instruction {
             Instruction::Jump { address } => {
                 memory.pc = address;
             },
-            Instruction::LoadVxValue { register, value } => {
-                memory.v[register] = value;
+            Instruction::LoadVxValue { vx, value } => {
+                memory.v[vx] = value;
             },
-            Instruction::AddVxValue { register, value } => {
-                memory.v[register] = memory.v[register].wrapping_add(value);
+            Instruction::AddVxValue { vx, value } => {
+                memory.v[vx] = memory.v[vx].wrapping_add(value);
             },
             Instruction::LoadIValue { value } => {
                 memory.i = value;
             },
-            Instruction::DisplayDraw { register_x, register_y, height } => {
-                let x = memory.v[register_x] % SIZE_DISPLAY.0;
-                let y = memory.v[register_y] % SIZE_DISPLAY.1;
+            Instruction::DisplayDraw { vx, vy, height } => {
+                let x = memory.v[vx] % SIZE_DISPLAY.0;
+                let y = memory.v[vy] % SIZE_DISPLAY.1;
                 memory.v[0xF] = 0;
                 'rows: for r in 0..(height) {
                     let row = memory.ram[(memory.i + r) as usize];
@@ -88,7 +88,7 @@ fn instruction_execute_jump() {
 fn instruction_execute_load_vx_value() {
     let mut m = Memory::new();
 
-    Instruction::LoadVxValue { register: 5, value: 0x32 }.execute(&mut m);
+    Instruction::LoadVxValue { vx: 5, value: 0x32 }.execute(&mut m);
 
     assert_eq!(m.v[5], 0x32);
 }
@@ -98,7 +98,7 @@ fn instruction_execute_add_vx_value() {
     let mut m = Memory::new();
     m.v[4] = 1;
 
-    Instruction::AddVxValue { register: 4, value: 0x33 }.execute(&mut m);
+    Instruction::AddVxValue { vx: 4, value: 0x33 }.execute(&mut m);
 
     assert_eq!(m.v[4], 0x34);
 }
@@ -127,7 +127,7 @@ fn instruction_execute_display_draw() {
     m.vram[coords_to_i(2, 3)] = true;
     m.vram[coords_to_i(3, 3)] = true;
 
-    Instruction::DisplayDraw { register_x: 4, register_y: 6, height: 2 }.execute(&mut m);
+    Instruction::DisplayDraw { vx: 4, vy: 6, height: 2 }.execute(&mut m);
 
     assert_eq!(m.vram[coords_to_i(1, 2)], false);
     assert_eq!(m.vram[coords_to_i(2, 2)], true);

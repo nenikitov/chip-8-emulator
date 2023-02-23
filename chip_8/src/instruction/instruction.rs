@@ -4,9 +4,9 @@ pub enum Instruction {
     System { address: u16 },
     DisplayClear,
     Jump { address: u16 },
-    LoadVxValue { register: usize, value: u16 },
-    AddVxValue { register: usize, value: u16 },
+    LoadVxValue { vx: usize, value: u16 },
+    AddVxValue { vx: usize, value: u16 },
     LoadIValue { value: u16 },
-    DisplayDraw { register_x: usize, register_y: usize, height: u16 },
+    DisplayDraw { vx: usize, vy: usize, height: u16 },
 }
 
