@@ -5,5 +5,5 @@ mod execute;
 
 pub use opcode::Opcode;
 pub use instruction::Instruction;
-pub use execute::InstructionExecutable;
+pub use execute::ExecuteOnMemory;
 

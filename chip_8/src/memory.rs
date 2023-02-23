@@ -25,14 +25,26 @@ pub const PROGRAM_START: u16 = 0x200;
 
 #[derive(Debug)]
 #[derive(PartialEq)]
+/// Chip 8 memory.
 pub struct Memory {
+    /// RAM.
+    /// * `0x000..=0x1FFF` is unused (except the font).
+    /// * Font is stored in `0x50..=0x9F` by convention.
+    /// * Programs are stored in `0x200..`.
     pub ram: [u8; SIZE_RAM],
+    /// Display buffer containing the state of each pixel.
     pub vram: [bool; SIZE_DISPLAY_TOTAL],
+    /// Indexes in RAM of current subroutines.
     pub stack: Vec<u16>,
+    /// Index in RAM where current execution is.
     pub pc: u16,
+    /// Timer to stop execution when non 0. Should decrement at 60Hz rate.
     pub dt: u8,
+    /// Timer play beep when non 0. Should decrement at 60Hz rate.
     pub st: u8,
+    /// Index register often used to store memory addresses.
     pub i: u16,
+    /// General purpose registers.
     pub v: [u16; 16]
 }
 
@@ -54,7 +66,7 @@ impl Memory {
 
     pub fn clear(&mut self) {
         self.ram.iter_mut().for_each(|e| *e = 0);
-        self.ram[0x50..0xA0].copy_from_slice(&FONT);
+        self.ram[0x50..=0x9F].copy_from_slice(&FONT);
         self.vram.iter_mut().for_each(|e| *e = false);
         self.stack.clear();
         self.v.iter_mut().for_each(|e| *e = 0);
@@ -70,7 +82,7 @@ impl Memory {
 fn memory_new_initializes_ram() {
     let m = Memory::new();
     assert_eq!(m.ram[0..0x50], [0; 0x50]);
-    assert_eq!(m.ram[0x50..0xA0], FONT);
+    assert_eq!(m.ram[0x50..=0x9F], FONT);
     assert_eq!(m.ram[0xA0..SIZE_RAM], [0; SIZE_RAM - 0xA0]);
 }
 #[test]

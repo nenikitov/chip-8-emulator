@@ -1,10 +1,17 @@
 #[derive(Debug, PartialEq, Eq)]
+/// Instruction bytes split into multiple parts.
 pub struct Opcode {
+    /// First nibble.
     i: usize,
+    /// Second nibble.
     x: usize,
+    /// Third nibble.
     y: usize,
+    /// Forth nibble.
     n: usize,
+    /// Last byte.
     nn: u16,
+    /// Last 12-bit word.
     nnn: u16,
 }
 

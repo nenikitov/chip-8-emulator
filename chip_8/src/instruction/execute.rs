@@ -1,15 +1,22 @@
 use crate::memory::*;
 use super::*;
 
+/// Convert XY coordinates to the index in VRAM.
+///
+/// # Arguments
+///
+/// * `x` - X coordinate.
+/// * `y` - Y coordinate.
 fn coords_to_i(x: usize, y: usize) -> usize {
     x + (y * SIZE_DISPLAY.0 as usize)
 }
 
-pub trait InstructionExecutable {
+/// Instruction that can be executes on memory.
+pub trait ExecuteOnMemory {
     fn execute(&self, memory: &mut Memory);
 }
 
-impl InstructionExecutable for Instruction {
+impl ExecuteOnMemory for Instruction {
     fn execute(&self, memory: &mut Memory) {
         match *self {
             Instruction::System { address: _ } => {
