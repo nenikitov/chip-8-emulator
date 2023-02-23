@@ -1,4 +1,4 @@
-use crate::{instructions::*, memory::*};
+use crate::{instruction::*, memory::*};
 
 #[derive(Debug)]
 pub struct Processor {

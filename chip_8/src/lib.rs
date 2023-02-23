@@ -1,7 +1,7 @@
 mod memory;
 mod processor;
 mod chip_8;
-mod instructions;
+mod instruction;
 
-pub type Chip8 = chip_8::Chip8;
+pub use crate::chip_8::Chip8;
 
