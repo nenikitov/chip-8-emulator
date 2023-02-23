@@ -64,6 +64,7 @@ impl Memory {
         memory
     }
 
+    /// Reset all memory.
     pub fn clear(&mut self) {
         self.ram.iter_mut().for_each(|e| *e = 0);
         self.ram[0x50..=0x9F].copy_from_slice(&FONT);

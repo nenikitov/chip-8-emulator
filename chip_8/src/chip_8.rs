@@ -12,11 +12,17 @@ impl Chip8 {
         }
     }
 
+    /// Reset memory and load a ROM into RAM>
+    ///
+    /// # Arguments
+    ///
+    /// * `program` - Program to load.
     pub fn load(&mut self, program: &[u8]) {
         self.memory.clear();
         self.memory.ram[PROGRAM_START as usize..PROGRAM_START as usize + program.len()].copy_from_slice(program);
     }
 
+    /// Perform a next instruction.
     pub fn advance(&mut self) {
         let opcode = Opcode::from((
             self.memory.ram[self.memory.pc as usize],
@@ -26,6 +32,7 @@ impl Chip8 {
         Instruction::from(opcode).execute(&mut self.memory);
     }
 
+    /// Get the screen buffer.
     pub fn screen(&self) -> Box<[&[bool]]> {
         self.memory.vram
             .chunks(SIZE_DISPLAY.0 as usize)
@@ -33,3 +40,4 @@ impl Chip8 {
             .collect()
     }
 }
+
