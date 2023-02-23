@@ -25,28 +25,40 @@ pub const PROGRAM_START: u16 = 0x200;
 
 #[derive(Debug)]
 #[derive(PartialEq)]
+/// Chip 8 memory.
 pub struct Memory {
+    /// RAM.
+    /// * `0x000..=0x1FFF` is unused (except the font).
+    /// * Font is stored in `0x50..=0x9F` by convention.
+    /// * Programs are stored in `0x200..`.
     pub ram: [u8; SIZE_RAM],
-    pub display: [bool; SIZE_DISPLAY_TOTAL],
+    /// Display buffer containing the state of each pixel.
+    pub vram: [bool; SIZE_DISPLAY_TOTAL],
+    /// Indexes in RAM of current subroutines.
     pub stack: Vec<u16>,
-    pub program_counter: u16,
-    pub timer_delay: u8,
-    pub timer_sound: u8,
-    pub register_index: u16,
-    pub registers_general: [u16; 16]
+    /// Index in RAM where current execution is.
+    pub pc: u16,
+    /// Timer to stop execution when non 0. Should decrement at 60Hz rate.
+    pub dt: u8,
+    /// Timer play beep when non 0. Should decrement at 60Hz rate.
+    pub st: u8,
+    /// Index register often used to store memory addresses.
+    pub i: u16,
+    /// General purpose registers.
+    pub v: [u16; 16]
 }
 
 impl Memory {
     pub fn new() -> Self {
         let mut memory = Self {
             ram: [0; SIZE_RAM],
-            display: [false; SIZE_DISPLAY_TOTAL],
+            vram: [false; SIZE_DISPLAY_TOTAL],
             stack: Vec::new(),
-            program_counter: PROGRAM_START,
-            timer_delay: 0,
-            timer_sound: 0,
-            register_index: 0,
-            registers_general: [0; SIZE_REGISTERS]
+            pc: PROGRAM_START,
+            dt: 0,
+            st: 0,
+            i: 0,
+            v: [0; SIZE_REGISTERS]
         };
         memory.clear();
         memory
@@ -54,14 +66,14 @@ impl Memory {
 
     pub fn clear(&mut self) {
         self.ram.iter_mut().for_each(|e| *e = 0);
-        self.ram[0x50..0xA0].copy_from_slice(&FONT);
-        self.display.iter_mut().for_each(|e| *e = false);
+        self.ram[0x50..=0x9F].copy_from_slice(&FONT);
+        self.vram.iter_mut().for_each(|e| *e = false);
         self.stack.clear();
-        self.registers_general.iter_mut().for_each(|e| *e = 0);
-        self.program_counter = PROGRAM_START;
-        self.timer_delay = 0;
-        self.timer_sound = 0;
-        self.register_index = 0;
+        self.v.iter_mut().for_each(|e| *e = 0);
+        self.pc = PROGRAM_START;
+        self.dt = 0;
+        self.st = 0;
+        self.i = 0;
     }
 }
 
@@ -70,13 +82,13 @@ impl Memory {
 fn memory_new_initializes_ram() {
     let m = Memory::new();
     assert_eq!(m.ram[0..0x50], [0; 0x50]);
-    assert_eq!(m.ram[0x50..0xA0], FONT);
+    assert_eq!(m.ram[0x50..=0x9F], FONT);
     assert_eq!(m.ram[0xA0..SIZE_RAM], [0; SIZE_RAM - 0xA0]);
 }
 #[test]
 fn memory_new_initializes_display() {
     let m = Memory::new();
-    assert_eq!(m.display, [false; SIZE_DISPLAY_TOTAL]);
+    assert_eq!(m.vram, [false; SIZE_DISPLAY_TOTAL]);
 }
 #[test]
 fn memory_new_initializes_stack() {
@@ -86,15 +98,15 @@ fn memory_new_initializes_stack() {
 #[test]
 fn memory_new_initializes_regitsers() {
     let m = Memory::new();
-    assert_eq!(m.register_index, 0);
-    assert_eq!(m.registers_general, [0; SIZE_REGISTERS]);
+    assert_eq!(m.i, 0);
+    assert_eq!(m.v, [0; SIZE_REGISTERS]);
 }
 #[test]
 fn memory_new_initializes_other() {
     let m = Memory::new();
-    assert_eq!(m.program_counter, PROGRAM_START);
-    assert_eq!(m.timer_delay, 0);
-    assert_eq!(m.timer_sound, 0);
+    assert_eq!(m.pc, PROGRAM_START);
+    assert_eq!(m.dt, 0);
+    assert_eq!(m.st, 0);
 }
 
 #[test]
@@ -102,13 +114,13 @@ fn memory_clear_resets() {
     let empty = Memory::new();
     let mut modified = Memory::new();
     modified.ram[PROGRAM_START as usize] = 0xFF;
-    modified.display[10..1000].iter_mut().for_each(|e| *e = true);
+    modified.vram[10..1000].iter_mut().for_each(|e| *e = true);
     modified.stack.push(0xFF);
-    modified.program_counter += 2;
-    modified.timer_delay = 10;
-    modified.timer_sound = 20;
-    modified.register_index = 1;
-    modified.registers_general.iter_mut().for_each(|e| *e = 5);
+    modified.pc += 2;
+    modified.dt = 10;
+    modified.st = 20;
+    modified.i = 1;
+    modified.v.iter_mut().for_each(|e| *e = 5);
     modified.clear();
     assert_eq!(modified, empty);
 }
