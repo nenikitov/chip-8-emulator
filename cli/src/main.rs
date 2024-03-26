@@ -1,3 +1,6 @@
+#![feature(array_chunks)]
+#![feature(iter_array_chunks)]
+
 mod timer;
 mod ui;
 mod waiter;
@@ -9,7 +12,7 @@ use std::{
 };
 
 use chip_8::Chip8;
-use ui::Drawable;
+use ui::AppWidget;
 use waiter::Waiter;
 
 const INSTRUCTIONS_PER_SECOND: usize = 200;
@@ -26,17 +29,21 @@ fn main() -> Result<(), i32> {
     let draw_handle = {
         let app_draw = app.clone();
         let mut waiter = Waiter::new(Duration::from_secs_f64(1f64 / FRAMES_PER_SECOND as f64));
+
         thread::spawn(move || loop {
             waiter.start();
 
             {
-                let mut app = app_draw.lock().expect("handle on the app in draw loop");
-                app.frames_timer.update();
+                let app = app_draw.lock().expect("handle on the app in draw loop");
                 if app.state() == ui::AppState::End {
                     ui::end_ui().expect("draw end");
                     break;
                 }
-                terminal.draw(|f| app.render(f, (0, 0))).expect("draw loop");
+                terminal
+                    .draw(|f| {
+                        f.render_widget(&AppWidget { app: &app }, f.size());
+                    })
+                    .expect("draw loop");
             }
 
             waiter.end();

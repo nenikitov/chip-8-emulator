@@ -1,15 +1,5 @@
-use crate::memory::*;
 use super::*;
-
-/// Convert XY coordinates to the index in VRAM.
-///
-/// # Arguments
-///
-/// * `x` - X coordinate.
-/// * `y` - Y coordinate.
-fn coords_to_i(x: usize, y: usize) -> usize {
-    x + (y * SIZE_DISPLAY.0 as usize)
-}
+use crate::memory::*;
 
 /// Instruction that can be executes on memory.
 pub trait ExecuteOnMemory {
@@ -21,25 +11,26 @@ impl ExecuteOnMemory for Instruction {
         match *self {
             Instruction::System { address: _ } => {
                 unimplemented!("Executing machine code is not supported")
-            },
-            Instruction::DisplayClear => {
-                memory.vram.iter_mut().for_each(|e| *e = false)
-            },
+            }
+            Instruction::DisplayClear => memory
+                .vram
+                .iter_mut()
+                .for_each(|e| e.iter_mut().for_each(|e| *e = false)),
             Instruction::Jump { address } => {
                 memory.pc = address;
-            },
+            }
             Instruction::LoadVxValue { vx, value } => {
                 memory.v[vx] = value;
-            },
+            }
             Instruction::AddVxValue { vx, value } => {
                 memory.v[vx] = memory.v[vx].wrapping_add(value);
-            },
+            }
             Instruction::LoadIValue { value } => {
                 memory.i = value;
-            },
+            }
             Instruction::DisplayDraw { vx, vy, height } => {
-                let x = memory.v[vx] % SIZE_DISPLAY.0;
-                let y = memory.v[vy] % SIZE_DISPLAY.1;
+                let x = memory.v[vx] % SIZE_DISPLAY.0 as u16;
+                let y = memory.v[vy] % SIZE_DISPLAY.1 as u16;
                 memory.v[0xF] = 0;
                 'rows: for r in 0..(height) {
                     let row = memory.ram[(memory.i + r) as usize];
@@ -47,13 +38,16 @@ impl ExecuteOnMemory for Instruction {
                         let pixel = row & (1 << (7 - p));
                         let pixel = pixel != 0;
                         if pixel {
-                            let x = x + p;
-                            let y = y + r;
-                            if x >= SIZE_DISPLAY.0 { break 'pixels; }
-                            if y >= SIZE_DISPLAY.1 { break 'rows; }
-                            let pos = coords_to_i(x as usize, y as usize);
-                            memory.vram[pos] ^= pixel;
-                            if !memory.vram[pos] {
+                            let x = (x + p) as usize;
+                            let y = (y + r) as usize;
+                            if x >= SIZE_DISPLAY.0 {
+                                break 'pixels;
+                            }
+                            if y >= SIZE_DISPLAY.1 {
+                                break 'rows;
+                            }
+                            memory.vram[y][x] ^= pixel;
+                            if !memory.vram[y][x] {
                                 memory.v[0xF] = 1;
                             }
                         }
@@ -63,7 +57,6 @@ impl ExecuteOnMemory for Instruction {
         };
     }
 }
-
 
 #[test]
 #[should_panic(expected = "not implemented: Executing machine code is not supported")]
@@ -75,11 +68,13 @@ fn instruction_execute_system_panics() {
 #[test]
 fn instruction_execute_display_clear() {
     let mut m = Memory::new();
-    m.vram.iter_mut().for_each(|e| *e = true);
+    m.vram
+        .iter_mut()
+        .for_each(|e| e.iter_mut().for_each(|e| *e = true));
 
     Instruction::DisplayClear.execute(&mut m);
 
-    assert_eq!(m.vram, [false; SIZE_DISPLAY_TOTAL]);
+    assert_eq!(m.vram, [[false; SIZE_DISPLAY.0]; SIZE_DISPLAY.1]);
 }
 
 #[test]
@@ -127,31 +122,35 @@ fn instruction_execute_display_draw() {
     m.ram[1] = 0b01001001;
     m.v[4] = 1;
     m.v[6] = 2;
-    m.vram[coords_to_i(1, 2)] = true;
-    m.vram[coords_to_i(2, 2)] = true;
-    m.vram[coords_to_i(3, 2)] = true;
-    m.vram[coords_to_i(1, 3)] = true;
-    m.vram[coords_to_i(2, 3)] = true;
-    m.vram[coords_to_i(3, 3)] = true;
+    m.vram[2][1] = true;
+    m.vram[2][2] = true;
+    m.vram[2][3] = true;
+    m.vram[3][1] = true;
+    m.vram[3][2] = true;
+    m.vram[3][3] = true;
 
-    Instruction::DisplayDraw { vx: 4, vy: 6, height: 2 }.execute(&mut m);
+    Instruction::DisplayDraw {
+        vx: 4,
+        vy: 6,
+        height: 2,
+    }
+    .execute(&mut m);
 
-    assert_eq!(m.vram[coords_to_i(1, 2)], false);
-    assert_eq!(m.vram[coords_to_i(2, 2)], true);
-    assert_eq!(m.vram[coords_to_i(3, 2)], false);
-    assert_eq!(m.vram[coords_to_i(4, 2)], true);
-    assert_eq!(m.vram[coords_to_i(5, 2)], true);
-    assert_eq!(m.vram[coords_to_i(6, 2)], true);
-    assert_eq!(m.vram[coords_to_i(7, 2)], true);
-    assert_eq!(m.vram[coords_to_i(8, 2)], true);
-    assert_eq!(m.vram[coords_to_i(1, 3)], true);
-    assert_eq!(m.vram[coords_to_i(2, 3)], false);
-    assert_eq!(m.vram[coords_to_i(3, 3)], true);
-    assert_eq!(m.vram[coords_to_i(4, 3)], false);
-    assert_eq!(m.vram[coords_to_i(5, 3)], true);
-    assert_eq!(m.vram[coords_to_i(6, 3)], false);
-    assert_eq!(m.vram[coords_to_i(7, 3)], false);
-    assert_eq!(m.vram[coords_to_i(8, 3)], true);
+    assert_eq!(m.vram[2][1], false);
+    assert_eq!(m.vram[2][2], true);
+    assert_eq!(m.vram[2][3], false);
+    assert_eq!(m.vram[2][4], true);
+    assert_eq!(m.vram[2][5], true);
+    assert_eq!(m.vram[2][6], true);
+    assert_eq!(m.vram[2][7], true);
+    assert_eq!(m.vram[2][8], true);
+    assert_eq!(m.vram[3][1], true);
+    assert_eq!(m.vram[3][2], false);
+    assert_eq!(m.vram[3][3], true);
+    assert_eq!(m.vram[3][4], false);
+    assert_eq!(m.vram[3][5], true);
+    assert_eq!(m.vram[3][6], false);
+    assert_eq!(m.vram[3][7], false);
+    assert_eq!(m.vram[3][8], true);
     assert_eq!(m.v[0xF], 1);
 }
-
