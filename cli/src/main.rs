@@ -1,36 +1,72 @@
-mod ui;
 mod timer;
+mod ui;
+mod waiter;
 
-use std::io;
+use std::{
+    io,
+    sync::{Arc, Mutex},
+    thread,
+    time::Duration,
+};
 
 use chip_8::Chip8;
-use tui::backend::CrosstermBackend;
 use ui::Drawable;
+use waiter::Waiter;
+
+const INSTRUCTIONS_PER_SECOND: usize = 1000;
+const FRAMES_PER_SECOND: usize = 20;
 
 fn main() -> Result<(), i32> {
-    let mut terminal = if let Ok(terminal) = ui::start_ui(CrosstermBackend::new(io::stdout())) {
-        terminal
-    } else {
-        eprintln!("{}", "Can't initialize TUI session");
-        return Err(1);
-    };
-
     let mut chip = Chip8::new();
     chip.load(include_bytes!("../../roms/ibm.ch8"));
 
-    let mut app = ui::App::new(chip);
+    let mut terminal = ui::start_ui().map_err(|_| 1)?;
 
-    loop {
-        terminal.draw(|f| app.render(f, (0, 0))).unwrap();
-        app.update();
+    let app = Arc::new(Mutex::new(ui::App::new(chip)));
 
-        match app.state() {
-            ui::AppState::InProgress =>
-                continue,
-            ui::AppState::End => {
-                ui::end_ui(terminal).unwrap();
-                return Ok(())
-            },
+    let draw_handle = {
+        let app_draw = app.clone();
+        let mut waiter = Waiter::new(Duration::from_secs_f64(1f64 / FRAMES_PER_SECOND as f64));
+        thread::spawn(move || loop {
+            waiter.start();
+
+            {
+                let app = app_draw.lock().expect("handle on the app in draw loop");
+                if app.state() == ui::AppState::End {
+                    ui::end_ui().expect("draw end");
+                    break;
+                }
+                terminal.draw(|f| app.render(f, (0, 0))).expect("draw loop");
+            }
+
+            waiter.end();
+            waiter.cycle();
+        })
+    };
+
+    {
+        let mut waiter = Waiter::new(Duration::from_secs_f64(
+            1f64 / INSTRUCTIONS_PER_SECOND as f64,
+        ));
+
+        loop {
+            waiter.start();
+
+            {
+                let mut app = app.lock().expect("handle on the app in update loop");
+
+                app.update();
+                if app.state() == ui::AppState::End {
+                    break;
+                }
+            }
+
+            waiter.end();
+            waiter.cycle();
         }
-    }
+    };
+
+    draw_handle.join().map_err(|_| 2)?;
+
+    Ok(())
 }

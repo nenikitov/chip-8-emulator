@@ -1,26 +1,21 @@
 use chip_8::Chip8;
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEventKind, poll},
-    execute,
+    event::{self, poll, Event, KeyCode, KeyEventKind},
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    ExecutableCommand,
 };
+use ratatui::{prelude::*, widgets::*};
 use std::{
-    io::{self, Write},
-    iter, vec, time::Duration,
-};
-use tui::{
-    backend::Backend,
-    layout::{Alignment, Rect},
-    style::{Color, Style},
-    text::{Span, Spans},
-    widgets::Paragraph,
-    Frame, Terminal,
+    io::{self, stdout, Stdout},
+    iter,
+    time::Duration,
+    vec,
 };
 
 use crate::timer::Timer;
 
 pub trait Drawable {
-    fn render<B: Backend>(&self, f: &mut Frame<B>, position: (u16, u16));
+    fn render(&self, f: &mut Frame, position: (u16, u16));
     fn size(&self) -> (u16, u16);
 }
 
@@ -29,7 +24,7 @@ struct SizeErrorBox {
     min_y: u16,
 }
 impl Drawable for SizeErrorBox {
-    fn render<B: Backend>(&self, f: &mut Frame<B>, _: (u16, u16)) {
+    fn render(&self, f: &mut Frame, _: (u16, u16)) {
         let size = f.size();
         let color_x = if size.width < self.min_x {
             Color::LightRed
@@ -43,13 +38,13 @@ impl Drawable for SizeErrorBox {
         };
 
         let text = vec![
-            Spans::from(Span::raw("Terminal window is too small")),
-            Spans::from(vec![
+            Line::from(Span::raw("Terminal window is too small")),
+            Line::from(vec![
                 Span::raw("Width = "),
                 Span::styled(format!("{}", size.width), Style::default().fg(color_x)),
                 Span::raw(format!(" (needed {})", self.min_x)),
             ]),
-            Spans::from(vec![
+            Line::from(vec![
                 Span::raw("Height = "),
                 Span::styled(format!("{}", size.height), Style::default().fg(color_y)),
                 Span::raw(format!(" (needed {})", self.min_y)),
@@ -72,10 +67,7 @@ struct Chip8Display<'a> {
 }
 impl<'a> Chip8Display<'a> {
     fn display_size(&self) -> (u16, u16) {
-        (
-            self.display[0].len() as u16,
-            self.display.len() as u16
-        )
+        (self.display[0].len() as u16, self.display.len() as u16)
     }
 
     fn generate_style(top: bool, bottom: bool) -> Style {
@@ -88,9 +80,9 @@ impl<'a> Chip8Display<'a> {
     }
 }
 impl<'a> Drawable for Chip8Display<'a> {
-    fn render<B: Backend>(&self, f: &mut Frame<B>, position: (u16, u16)) {
+    fn render(&self, f: &mut Frame, position: (u16, u16)) {
         let display_size = self.display_size();
-        let display: Vec<Spans> =
+        let display: Vec<Line> =
             // Take every 2 rows
             self.display.chunks(2)
             // Zip them together
@@ -104,7 +96,7 @@ impl<'a> Drawable for Chip8Display<'a> {
                 .chain(iter::once(Span::raw("\n")))
                 .collect::<Vec<Span>>()
             )
-            .map(|r| Spans::from(r))
+            .map(|r| Line::from(r))
             .collect();
         f.render_widget(
             Paragraph::new(display),
@@ -123,23 +115,23 @@ impl<'a> Drawable for Chip8Display<'a> {
     }
 }
 
-
 struct InstructionsPerSecond<'a> {
     timer: &'a Timer,
     instructions_per_loop: u32,
 }
 impl<'a> Drawable for InstructionsPerSecond<'a> {
-    fn render<B: Backend>(&self, f: &mut Frame<B>, position: (u16, u16)) {
+    fn render(&self, f: &mut Frame, position: (u16, u16)) {
         let size = f.size();
-        let instructions = (1f64 / self.timer.delta().as_secs_f64()) * self.instructions_per_loop as f64;
+        let instructions =
+            (1f64 / self.timer.delta().as_secs_f64()) * self.instructions_per_loop as f64;
         f.render_widget(
             Paragraph::new(format!("{} i/s", instructions.round())).alignment(Alignment::Right),
             Rect {
                 x: position.0,
                 y: position.1,
                 width: size.width,
-                height: size.height
-            }
+                height: size.height,
+            },
         )
     }
 
@@ -148,11 +140,10 @@ impl<'a> Drawable for InstructionsPerSecond<'a> {
     }
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq)]
 pub enum AppState {
     InProgress,
-    End
+    End,
 }
 
 #[derive(Debug)]
@@ -160,7 +151,7 @@ pub struct App {
     chip: Chip8,
     state: AppState,
     timer: Timer,
-    instructions_per_loop: u32
+    instructions_per_loop: u32,
 }
 
 impl App {
@@ -169,7 +160,7 @@ impl App {
             chip,
             state: AppState::InProgress,
             timer: Timer::new(),
-            instructions_per_loop: 1
+            instructions_per_loop: 1,
         }
     }
 
@@ -178,9 +169,10 @@ impl App {
             let key = event::read()?;
             if let Event::Key(key) = key {
                 match (key.kind, key.code) {
-                    (KeyEventKind::Press, KeyCode::Esc) =>
-                        self.state = AppState::End,
-                    _ => ()
+                    (KeyEventKind::Press, KeyCode::Char('q')) => {
+                        self.state = AppState::End;
+                    }
+                    _ => (),
                 }
             }
         }
@@ -204,7 +196,7 @@ impl App {
 }
 
 impl Drawable for App {
-    fn render<B: Backend>(&self, f: &mut Frame<B>, _: (u16, u16)) {
+    fn render(&self, f: &mut Frame, _: (u16, u16)) {
         let size = f.size();
 
         let display = self.chip.screen();
@@ -213,12 +205,10 @@ impl Drawable for App {
 
         let widget_instructions = InstructionsPerSecond {
             timer: &self.timer,
-            instructions_per_loop: self.instructions_per_loop
+            instructions_per_loop: self.instructions_per_loop,
         };
 
-        let widget_display = Chip8Display {
-            display: &display,
-        };
+        let widget_display = Chip8Display { display: &display };
 
         let minimum_x = widget_display.size().0;
         let minimum_y = widget_display.size().1 + widget_instructions.size().1 + 1;
@@ -228,22 +218,16 @@ impl Drawable for App {
                 min_x: minimum_x,
                 min_y: minimum_y,
             }
-            .render(
-                f,
-                (0, 0)
-            );
+            .render(f, (0, 0));
         } else {
             widget_display.render(
                 f,
                 (
                     (size.width - display_x) / 2 + widget_instructions.size().1,
-                    (size.height - display_y) / 2
-                )
+                    (size.height - display_y) / 2,
+                ),
             );
-            widget_instructions.render(
-                f,
-                (0, 0)
-            );
+            widget_instructions.render(f, (0, 0));
         }
     }
 
@@ -252,22 +236,15 @@ impl Drawable for App {
     }
 }
 
-pub fn start_ui<B: Backend>(backend: B) -> Result<Terminal<B>, io::Error>
-where
-    B: Backend,
-{
+pub fn start_ui() -> Result<Terminal<CrosstermBackend<Stdout>>, io::Error> {
     enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
-    let terminal = Terminal::new(backend)?;
+    stdout().execute(EnterAlternateScreen)?;
 
-    Ok(terminal)
+    Terminal::new(CrosstermBackend::new(stdout()))
 }
 
-pub fn end_ui<B: Backend + Write>(mut terminal: Terminal<B>) -> Result<(), io::Error> {
+pub fn end_ui() -> Result<(), io::Error> {
     disable_raw_mode()?;
-    let backend = terminal.backend_mut();
-    execute!(backend, LeaveAlternateScreen)?;
-    terminal.show_cursor()?;
+    stdout().execute(LeaveAlternateScreen)?;
     Ok(())
 }
