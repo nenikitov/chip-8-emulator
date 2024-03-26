@@ -3,7 +3,6 @@ mod ui;
 mod waiter;
 
 use std::{
-    io,
     sync::{Arc, Mutex},
     thread,
     time::Duration,
@@ -13,8 +12,8 @@ use chip_8::Chip8;
 use ui::Drawable;
 use waiter::Waiter;
 
-const INSTRUCTIONS_PER_SECOND: usize = 1000;
-const FRAMES_PER_SECOND: usize = 20;
+const INSTRUCTIONS_PER_SECOND: usize = 200;
+const FRAMES_PER_SECOND: usize = 60;
 
 fn main() -> Result<(), i32> {
     let mut chip = Chip8::new();
@@ -31,7 +30,8 @@ fn main() -> Result<(), i32> {
             waiter.start();
 
             {
-                let app = app_draw.lock().expect("handle on the app in draw loop");
+                let mut app = app_draw.lock().expect("handle on the app in draw loop");
+                app.frames_timer.update();
                 if app.state() == ui::AppState::End {
                     ui::end_ui().expect("draw end");
                     break;

@@ -115,24 +115,33 @@ impl<'a> Drawable for Chip8Display<'a> {
     }
 }
 
-struct InstructionsPerSecond<'a> {
-    timer: &'a Timer,
-    instructions_per_loop: u32,
+struct Stats<'a> {
+    instructions_timer: &'a Timer,
+    frames_timer: &'a Timer,
 }
-impl<'a> Drawable for InstructionsPerSecond<'a> {
+impl<'a> Drawable for Stats<'a> {
     fn render(&self, f: &mut Frame, position: (u16, u16)) {
         let size = f.size();
-        let instructions =
-            (1f64 / self.timer.delta().as_secs_f64()) * self.instructions_per_loop as f64;
+        let instructions = (1f64 / self.instructions_timer.delta().as_secs_f64()).round();
+        let frames = (1f64 / self.frames_timer.delta().as_secs_f64()).round();
         f.render_widget(
-            Paragraph::new(format!("{} i/s", instructions.round())).alignment(Alignment::Right),
+            Paragraph::new(format!("{} ips", instructions)).alignment(Alignment::Right),
             Rect {
                 x: position.0,
                 y: position.1,
                 width: size.width,
                 height: size.height,
             },
-        )
+        );
+        f.render_widget(
+            Paragraph::new(format!("{} fps", frames)).alignment(Alignment::Right),
+            Rect {
+                x: position.0,
+                y: position.1 + 1,
+                width: size.width,
+                height: size.height,
+            },
+        );
     }
 
     fn size(&self) -> (u16, u16) {
@@ -150,8 +159,8 @@ pub enum AppState {
 pub struct App {
     chip: Chip8,
     state: AppState,
-    timer: Timer,
-    instructions_per_loop: u32,
+    instructions_timer: Timer,
+    pub frames_timer: Timer,
 }
 
 impl App {
@@ -159,8 +168,8 @@ impl App {
         Self {
             chip,
             state: AppState::InProgress,
-            timer: Timer::new(),
-            instructions_per_loop: 1,
+            instructions_timer: Timer::new(),
+            frames_timer: Timer::new(),
         }
     }
 
@@ -180,14 +189,14 @@ impl App {
     }
 
     pub fn update(&mut self) {
+        self.instructions_timer.update();
+
         if let Err(e) = self.handle_input() {
             self.state = AppState::End;
             println!("Error reading from input {}", e);
         }
 
         self.chip.advance();
-
-        self.timer.update();
     }
 
     pub fn state(&self) -> AppState {
@@ -203,9 +212,9 @@ impl Drawable for App {
         let (display_x, display_y) = (display[0].len() as u16, display.len() as u16);
         let display_y = display_y / 2;
 
-        let widget_instructions = InstructionsPerSecond {
-            timer: &self.timer,
-            instructions_per_loop: self.instructions_per_loop,
+        let widget_instructions = Stats {
+            instructions_timer: &self.instructions_timer,
+            frames_timer: &self.frames_timer,
         };
 
         let widget_display = Chip8Display { display: &display };
