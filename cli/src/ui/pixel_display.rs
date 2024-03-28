@@ -1,5 +1,7 @@
-use ratatui::{prelude::*, widgets::*};
+use ratatui::{layout::Size, prelude::*, widgets::*};
 use std::{iter, ops::Deref};
+
+use super::WidgetSize;
 
 fn generate_style(top: bool, bottom: bool) -> Style {
     Style::default()
@@ -15,15 +17,12 @@ where
     pub display: Outer,
 }
 
-impl<Outer: ?Sized, Inner> Widget for PixelDisplay<Outer, Inner>
+impl<Outer: ?Sized, Inner> WidgetSize for PixelDisplay<Outer, Inner>
 where
     Outer: Deref<Target = [Inner]>,
     Inner: AsRef<[bool]>,
 {
-    fn render(self, area: Rect, buf: &mut Buffer)
-    where
-        Self: Sized,
-    {
+    fn render_sized(&self, area: Rect, buf: &mut Buffer) -> layout::Size {
         let lines: Vec<Line> = self
             .display
             .array_chunks::<2>()
@@ -31,12 +30,17 @@ where
             .map(|row_pairs| -> Vec<Span> {
                 row_pairs
                     .map(|(top, bottom)| Span::styled("▀", generate_style(*top, *bottom)))
-                    .chain(iter::once(Span::raw("\n")))
                     .collect()
             })
             .map(Line::from)
             .collect();
 
+        let size = Size {
+            width: lines[0].width() as u16,
+            height: lines.len() as u16,
+        };
         Paragraph::new(lines).render(area, buf);
+
+        size
     }
 }

@@ -33,14 +33,15 @@ impl<'a> WidgetSize for LayoutAlign<'a> {
                 .saturating_sub(size.height),
         };
 
-        buf_temp.resize(Rect {
-            x,
-            y,
-            width: size.width,
-            height: size.height,
-        });
-
-        buf.merge(&buf_temp);
+        self.child.render_sized(
+            Rect {
+                x,
+                y,
+                width: size.width,
+                height: size.height,
+            },
+            buf,
+        );
 
         Size {
             width: if self.horizontal == Alignment::Left {

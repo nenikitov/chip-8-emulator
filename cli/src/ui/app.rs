@@ -82,22 +82,19 @@ impl<'a> Widget for AppWidget<'a> {
                         target: 1.0,
                         precision: Some(0),
                     },
-                    horizontal: Alignment::Left,
+                    horizontal: Alignment::Right,
                     vertical: Alignment::Left,
                 },
                 &LayoutAlign {
-                    child: &Stat {
-                        name: "2".to_string(),
-                        value: 2.0,
-                        target: 2.0,
-                        precision: Some(5),
+                    child: &PixelDisplay {
+                        display: self.app.chip.memory.vram.as_slice(),
                     },
-                    horizontal: Alignment::Left,
-                    vertical: Alignment::Left,
+                    horizontal: Alignment::Center,
+                    vertical: Alignment::Center,
                 },
             ],
-            direction: Direction::Horizontal,
-            gap: 3,
+            direction: Direction::Vertical,
+            gap: 0,
         }
         .render_sized(area, buf);
 
