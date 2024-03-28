@@ -25,7 +25,11 @@ fn main() -> Result<(), i32> {
     let mut terminal = ui::start_ui().map_err(|_| 1)?;
     ui::panic_hook();
 
-    let app = Arc::new(Mutex::new(ui::App::new(chip)));
+    let app = Arc::new(Mutex::new(ui::App::new(
+        chip,
+        INSTRUCTIONS_PER_SECOND,
+        FRAMES_PER_SECOND,
+    )));
 
     let draw_handle = {
         let app_draw = app.clone();

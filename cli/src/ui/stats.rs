@@ -2,10 +2,16 @@ use ratatui::{layout::Size, prelude::*, widgets::*};
 
 use super::WidgetSize;
 
+pub enum StatBias {
+    HigherBetter,
+    LowerBetter,
+}
+
 pub struct Stat {
     pub name: String,
     pub value: f64,
     pub target: f64,
+    pub bias: StatBias,
     pub precision: Option<usize>,
 }
 
@@ -28,11 +34,16 @@ impl Stat {
 
 impl WidgetSize for Stat {
     fn render_sized(&self, area: Rect, buf: &mut Buffer) -> Size {
-        let color = match self.value / self.target {
-            x if x < 0.5 => Color::LightRed,
-            x if x < 0.9 => Color::LightYellow,
-            x if x < 1.1 => Color::LightGreen,
-            x if x < 1.5 => Color::LightBlue,
+        let delta = (self.value - self.target) / self.target;
+
+        let color = match match self.bias {
+            StatBias::HigherBetter => delta,
+            StatBias::LowerBetter => -delta,
+        } {
+            x if x < -0.5 => Color::LightRed,
+            x if x < -0.1 => Color::LightYellow,
+            x if x < 0.1 => Color::LightGreen,
+            x if x < 0.5 => Color::LightBlue,
             _ => Color::LightMagenta,
         };
 

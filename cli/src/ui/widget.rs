@@ -68,7 +68,7 @@ impl<'a> Widget for LayoutAlign<'a> {
 pub struct LayoutLinear<'a> {
     pub direction: Direction,
     pub children: Vec<(&'a dyn WidgetSize, Option<Constraint>)>,
-    pub flex_main_axis: Flex,
+    pub flex_main_axis: Option<Flex>,
     pub flex_cross_axis: bool,
     pub spacing: u16,
 }
@@ -102,14 +102,20 @@ impl<'a> WidgetSize for LayoutLinear<'a> {
             }
         }
 
-        let layout = Layout::default()
+        let mut layout = Layout::default()
             .direction(self.direction)
-            .flex(self.flex_main_axis)
             .spacing(self.spacing)
-            .constraints(constraints)
-            .split(target_area);
+            .constraints(constraints);
+        if let Some(flex) = self.flex_main_axis {
+            layout = layout.flex(flex);
+        }
 
-        for (c, &a) in self.children.iter().map(|(c, _)| *c).zip(layout.as_ref()) {
+        for (c, &a) in self
+            .children
+            .iter()
+            .map(|(c, _)| *c)
+            .zip(layout.split(target_area).as_ref())
+        {
             c.render_sized(a, buf);
         }
 
