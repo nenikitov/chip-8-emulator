@@ -1,5 +1,7 @@
 use ratatui::{layout::*, prelude::*};
 
+use crate::ui::size_error::SizeError;
+
 pub trait WidgetSize {
     fn render_sized(&self, area: Rect, buf: &mut Buffer) -> Size;
     fn minimum_size(&self) -> Size;
@@ -152,5 +154,53 @@ impl<'a> WidgetSize for LayoutLinear<'a> {
                 },
             }
         }
+    }
+}
+
+pub struct LayoutOverlay<'a> {
+    pub children: Vec<&'a dyn WidgetSize>,
+}
+
+impl<'a> WidgetSize for LayoutOverlay<'a> {
+    fn render_sized(&self, area: Rect, buf: &mut Buffer) -> Size {
+        for c in &self.children {
+            c.render_sized(area, buf);
+        }
+
+        area.as_size()
+    }
+
+    fn minimum_size(&self) -> Size {
+        if self.children.len() == 0 {
+            Size::default()
+        } else {
+            let sizes: Vec<_> = self.children.iter().map(|c| c.minimum_size()).collect();
+
+            Size {
+                width: sizes.iter().map(|s| s.width).max().unwrap(),
+                height: sizes.iter().map(|s| s.height).max().unwrap(),
+            }
+        }
+    }
+}
+
+pub struct LayoutSizeError<'a> {
+    pub child: &'a dyn WidgetSize,
+}
+
+impl<'a> WidgetSize for LayoutSizeError<'a> {
+    fn render_sized(&self, area: Rect, buf: &mut Buffer) -> Size {
+        let size_area = area.as_size();
+        let size_minimum = self.minimum_size();
+
+        if size_area.width >= size_minimum.width && size_area.height >= size_minimum.height {
+            self.child.render_sized(area, buf)
+        } else {
+            SizeError { min: size_minimum }.render_sized(area, buf)
+        }
+    }
+
+    fn minimum_size(&self) -> Size {
+        self.child.minimum_size()
     }
 }

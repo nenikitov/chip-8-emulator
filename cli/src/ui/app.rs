@@ -8,7 +8,7 @@ use crate::timer::Timer;
 
 use super::{
     pixel_display::PixelDisplay, size_error::SizeError, stats::Stat, LayoutAlign, LayoutLinear,
-    WidgetSize,
+    LayoutSizeError, WidgetSize,
 };
 
 #[derive(PartialEq, Eq, Default, Clone, Copy)]
@@ -73,36 +73,38 @@ impl<'a> Widget for AppWidget<'a> {
     where
         Self: Sized,
     {
-        LayoutLinear {
-            direction: Direction::Vertical,
-            children: vec![
-                (
-                    &LayoutAlign {
-                        child: &Stat {
-                            name: "1".to_string(),
-                            value: 1.0,
-                            target: 1.0,
-                            precision: Some(0),
+        LayoutSizeError {
+            child: &LayoutLinear {
+                direction: Direction::Vertical,
+                children: vec![
+                    (
+                        &LayoutAlign {
+                            child: &Stat {
+                                name: "1".to_string(),
+                                value: 1.0,
+                                target: 1.0,
+                                precision: Some(0),
+                            },
+                            horizontal: Alignment::Right,
+                            vertical: Alignment::Left,
                         },
-                        horizontal: Alignment::Right,
-                        vertical: Alignment::Left,
-                    },
-                    None,
-                ),
-                (
-                    &LayoutAlign {
-                        child: &PixelDisplay {
-                            display: self.app.chip.memory.vram.as_slice(),
+                        None,
+                    ),
+                    (
+                        &LayoutAlign {
+                            child: &PixelDisplay {
+                                display: self.app.chip.memory.vram.as_slice(),
+                            },
+                            horizontal: Alignment::Center,
+                            vertical: Alignment::Center,
                         },
-                        horizontal: Alignment::Center,
-                        vertical: Alignment::Center,
-                    },
-                    Some(Constraint::Fill(1)),
-                ),
-            ],
-            flex_main_axis: Flex::Start,
-            flex_cross_axis: true,
-            spacing: 0,
+                        Some(Constraint::Fill(1)),
+                    ),
+                ],
+                flex_main_axis: Flex::Start,
+                flex_cross_axis: true,
+                spacing: 0,
+            },
         }
         .render_sized(area, buf);
     }
