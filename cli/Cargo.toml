@@ -7,6 +7,5 @@ edition = "2021"
 
 [dependencies]
 chip_8 = { path = "../chip_8" }
-tui = "0.19"
 crossterm = "0.25"
-
+ratatui = { version = "0.26.1", features = ["unstable-rendered-line-info"] }
