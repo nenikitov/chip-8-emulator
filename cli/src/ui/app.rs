@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{cell::RefCell, time::Duration};
 
 use chip_8::Chip8;
 use crossterm::event::{self, poll, Event, KeyCode, KeyEventKind};
@@ -25,7 +25,7 @@ pub struct App {
     state: AppState,
     timer_instructions: Timer,
     target_instructions: usize,
-    timer_frames: Timer,
+    timer_frames: RefCell<Timer>,
     target_frames: usize,
 }
 
@@ -35,7 +35,7 @@ impl App {
             chip,
             state: AppState::default(),
             timer_instructions: Timer::new(),
-            timer_frames: Timer::new(),
+            timer_frames: RefCell::new(Timer::new()),
             target_instructions,
             target_frames,
         }
@@ -78,6 +78,10 @@ impl<'a> Widget for AppWidget<'a> {
     where
         Self: Sized,
     {
+        // TODO(nenikitov): This internal mutability automatically updates the timer since last rendered frame
+        // Maybe find a more elegant solution
+        self.app.timer_frames.borrow_mut().update();
+
         let ips = Stat {
             name: "IPS".to_string(),
             value: 1f64 / self.app.timer_instructions.delta().as_secs_f64(),
@@ -102,14 +106,14 @@ impl<'a> Widget for AppWidget<'a> {
 
         let fps = Stat {
             name: "FPS".to_string(),
-            value: 1f64 / self.app.timer_frames.delta().as_secs_f64(),
+            value: 1f64 / &self.app.timer_frames.borrow().delta().as_secs_f64(),
             target: self.app.target_frames as f64,
             bias: StatBias::HigherBetter,
             precision: Some(0),
         };
         let fps_secs = Stat {
             name: "sec".to_string(),
-            value: self.app.timer_frames.delta().as_secs_f64(),
+            value: self.app.timer_frames.borrow().delta().as_secs_f64(),
             target: 1f64 / self.app.target_frames as f64,
             bias: StatBias::LowerBetter,
             precision: Some(4),
