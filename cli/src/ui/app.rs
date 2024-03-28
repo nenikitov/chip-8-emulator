@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use chip_8::Chip8;
 use crossterm::event::{self, poll, Event, KeyCode, KeyEventKind};
-use ratatui::{prelude::*, widgets::*};
+use ratatui::{layout::Flex, prelude::*, widgets::*};
 
 use crate::timer::Timer;
 
@@ -74,45 +74,36 @@ impl<'a> Widget for AppWidget<'a> {
         Self: Sized,
     {
         LayoutLinear {
-            children: vec![
-                &LayoutAlign {
-                    child: &Stat {
-                        name: "1".to_string(),
-                        value: 1.0,
-                        target: 1.0,
-                        precision: Some(0),
-                    },
-                    horizontal: Alignment::Right,
-                    vertical: Alignment::Left,
-                },
-                &LayoutAlign {
-                    child: &PixelDisplay {
-                        display: self.app.chip.memory.vram.as_slice(),
-                    },
-                    horizontal: Alignment::Center,
-                    vertical: Alignment::Center,
-                },
-            ],
             direction: Direction::Vertical,
-            gap: 0,
+            children: vec![
+                (
+                    &LayoutAlign {
+                        child: &Stat {
+                            name: "1".to_string(),
+                            value: 1.0,
+                            target: 1.0,
+                            precision: Some(0),
+                        },
+                        horizontal: Alignment::Right,
+                        vertical: Alignment::Left,
+                    },
+                    None,
+                ),
+                (
+                    &LayoutAlign {
+                        child: &PixelDisplay {
+                            display: self.app.chip.memory.vram.as_slice(),
+                        },
+                        horizontal: Alignment::Center,
+                        vertical: Alignment::Center,
+                    },
+                    Some(Constraint::Fill(1)),
+                ),
+            ],
+            flex_main_axis: Flex::Start,
+            flex_cross_axis: true,
+            spacing: 0,
         }
         .render_sized(area, buf);
-
-        // PixelDisplay {
-        //     display: self.app.chip.memory.vram.as_slice(),
-        // }
-        // .render(area, buf)
-
-        // LayoutAlign {
-        //     child: &Stat {
-        //         name: "IPS".to_string(),
-        //         value: buf.area.width as f64,
-        //         target: area.width as f64,
-        //         precision: Some(0),
-        //     },
-        //     vertical: Alignment::Center,
-        //     horizontal: Alignment::Center,
-        // }
-        // .render(area, buf);
     }
 }

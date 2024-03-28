@@ -17,7 +17,7 @@ where
     pub display: Outer,
 }
 
-impl<Outer: ?Sized, Inner> WidgetSize for PixelDisplay<Outer, Inner>
+impl<Outer, Inner> WidgetSize for PixelDisplay<Outer, Inner>
 where
     Outer: Deref<Target = [Inner]>,
     Inner: AsRef<[bool]>,
@@ -42,5 +42,12 @@ where
         Paragraph::new(lines).render(area, buf);
 
         size
+    }
+
+    fn minimum_size(&self) -> Size {
+        Size {
+            width: self.display[0].as_ref().len() as u16,
+            height: (self.display.len() / 2) as u16,
+        }
     }
 }

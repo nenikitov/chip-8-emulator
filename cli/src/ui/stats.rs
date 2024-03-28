@@ -36,13 +36,18 @@ impl WidgetSize for Stat {
             _ => Color::LightMagenta,
         };
 
-        let text = self.format();
-        let width = text.len() as u16;
-
-        Paragraph::new(text)
+        Paragraph::new(self.format())
             .style(Style::default().fg(color))
             .render(area, buf);
 
-        Size { height: 1, width }
+        self.minimum_size()
+    }
+
+    fn minimum_size(&self) -> Size {
+        let text = self.format();
+        Size {
+            height: 1,
+            width: text.len() as u16,
+        }
     }
 }
