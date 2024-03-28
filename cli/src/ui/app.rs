@@ -6,7 +6,7 @@ use ratatui::{prelude::*, widgets::*};
 
 use crate::timer::Timer;
 
-use super::{pixel_display::PixelDisplay, size_error::SizeError};
+use super::{pixel_display::PixelDisplay, size_error::SizeError, stats::Stat, Align};
 
 #[derive(PartialEq, Eq, Default, Clone, Copy)]
 pub enum AppState {
@@ -65,14 +65,25 @@ pub struct AppWidget<'a> {
     pub app: &'a App,
 }
 
-impl<'a> Widget for &AppWidget<'a> {
+impl<'a> Widget for AppWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer)
     where
         Self: Sized,
     {
-        PixelDisplay {
-            display: self.app.chip.memory.vram.as_slice(),
+        // PixelDisplay {
+        //     display: self.app.chip.memory.vram.as_slice(),
+        // }
+        // .render(area, buf)
+        Align {
+            child: Stat {
+                name: "IPS".to_string(),
+                value: buf.area.width as f64,
+                target: area.width as f64,
+                precision: Some(0),
+            },
+            vertical: Alignment::Center,
+            horizontal: Alignment::Center,
         }
-        .render(area, buf)
+        .render(area, buf);
     }
 }

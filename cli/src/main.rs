@@ -23,6 +23,7 @@ fn main() -> Result<(), i32> {
     chip.load(include_bytes!("../../roms/ibm.ch8"));
 
     let mut terminal = ui::start_ui().map_err(|_| 1)?;
+    ui::panic_hook();
 
     let app = Arc::new(Mutex::new(ui::App::new(chip)));
 
@@ -41,7 +42,7 @@ fn main() -> Result<(), i32> {
                 }
                 terminal
                     .draw(|f| {
-                        f.render_widget(&AppWidget { app: &app }, f.size());
+                        f.render_widget(AppWidget { app: &app }, f.size());
                     })
                     .expect("draw loop");
             }
