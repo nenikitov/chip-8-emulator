@@ -27,7 +27,7 @@ impl Stat {
 }
 
 impl WidgetSize for Stat {
-    fn render_sized(self, area: Rect, buf: &mut Buffer) -> Size {
+    fn render_sized(&self, area: Rect, buf: &mut Buffer) -> Size {
         let color = match self.value / self.target {
             x if x < 0.5 => Color::LightRed,
             x if x < 0.9 => Color::LightYellow,

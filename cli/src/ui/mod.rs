@@ -2,6 +2,7 @@ mod app;
 mod pixel_display;
 mod size_error;
 mod stats;
+mod widget;
 
 use chip_8::Chip8;
 use crossterm::{
@@ -18,61 +19,6 @@ use std::{
 };
 
 use crate::timer::Timer;
-
-pub trait WidgetSize {
-    fn render_sized(self, area: Rect, buf: &mut Buffer) -> Size;
-}
-
-pub struct Align<T: WidgetSize> {
-    pub child: T,
-    pub vertical: Alignment,
-    pub horizontal: Alignment,
-}
-
-impl<T: WidgetSize> WidgetSize for Align<T> {
-    fn render_sized(self, area: Rect, buf: &mut Buffer) -> Size {
-        let mut buf_temp = Buffer::empty(buf.area);
-        let size = self.child.render_sized(area, &mut buf_temp);
-
-        let x = match self.horizontal {
-            Alignment::Left => area.x,
-            Alignment::Center => area
-                .x
-                .saturating_add((area.width.saturating_sub(size.width)) / 2),
-            Alignment::Right => area.x.saturating_add(area.width).saturating_sub(size.width),
-        };
-        let y = match self.vertical {
-            Alignment::Left => area.y,
-            Alignment::Center => area
-                .y
-                .saturating_add((area.height.saturating_sub(size.height)) / 2),
-            Alignment::Right => area
-                .x
-                .saturating_add(area.height)
-                .saturating_sub(size.height),
-        };
-
-        buf_temp.resize(Rect {
-            x,
-            y,
-            width: size.width,
-            height: size.height,
-        });
-
-        buf.merge(&buf_temp);
-
-        area.as_size()
-    }
-}
-
-impl<T: WidgetSize> Widget for Align<T> {
-    fn render(self, area: Rect, buf: &mut Buffer)
-    where
-        Self: Sized,
-    {
-        self.render_sized(area, buf);
-    }
-}
 
 pub trait Drawable {
     fn render(&self, f: &mut Frame, position: (u16, u16));
@@ -114,6 +60,7 @@ impl<'a> Drawable for Stats<'a> {
 }
 
 pub use app::*;
+pub use widget::*;
 
 //#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq)]
 //pub enum AppState {
