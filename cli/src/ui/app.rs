@@ -122,31 +122,28 @@ impl<'a> Widget for AppWidget<'a> {
             spacing: 0,
         };
 
+        let stats = LayoutLinear {
+            direction: Direction::Horizontal,
+            children: vec![(&ips_stats, None), (&fps_stats, None)],
+            flex_main_axis: Some(Flex::SpaceBetween),
+            flex_cross_axis: false,
+            spacing: 0,
+        };
+
+        let screen = PixelDisplay {
+            display: self.app.chip.memory.vram.as_slice(),
+        };
+
+        let emulator = LayoutAlign {
+            child: &screen,
+            horizontal: Alignment::Center,
+            vertical: Alignment::Center,
+        };
+
         LayoutSizeError {
             child: &LayoutLinear {
                 direction: Direction::Vertical,
-                children: vec![
-                    (
-                        &LayoutLinear {
-                            direction: Direction::Horizontal,
-                            children: vec![(&ips_stats, None), (&fps_stats, None)],
-                            flex_main_axis: Some(Flex::SpaceBetween),
-                            flex_cross_axis: false,
-                            spacing: 0,
-                        },
-                        None,
-                    ),
-                    (
-                        &LayoutAlign {
-                            child: &PixelDisplay {
-                                display: self.app.chip.memory.vram.as_slice(),
-                            },
-                            horizontal: Alignment::Center,
-                            vertical: Alignment::Center,
-                        },
-                        Some(Constraint::Fill(1)),
-                    ),
-                ],
+                children: vec![(&stats, None), (&emulator, Some(Constraint::Fill(1)))],
                 flex_main_axis: None,
                 flex_cross_axis: true,
                 spacing: 0,
