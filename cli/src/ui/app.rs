@@ -2,13 +2,13 @@ use std::time::Duration;
 
 use chip_8::Chip8;
 use crossterm::event::{self, poll, Event, KeyCode, KeyEventKind};
-use ratatui::{layout::Flex, prelude::*, widgets::*};
+use ratatui::{layout::Flex, prelude::*};
 
 use crate::timer::Timer;
 
 use super::{
-    pixel_display::PixelDisplay, size_error::SizeError, stats::Stat, LayoutAlign, LayoutLinear,
-    LayoutSizeError, WidgetSize,
+    pixel_display::PixelDisplay, stats::Stat, LayoutAlign, LayoutLinear, LayoutSizeError,
+    WidgetSize,
 };
 
 #[derive(PartialEq, Eq, Default, Clone, Copy)]

@@ -1,4 +1,4 @@
-use ratatui::{layout::*, prelude::*};
+use ratatui::{layout::*, prelude::*, widgets::*};
 
 use crate::ui::size_error::SizeError;
 
@@ -202,5 +202,19 @@ impl<'a> WidgetSize for LayoutSizeError<'a> {
 
     fn minimum_size(&self) -> Size {
         self.child.minimum_size()
+    }
+}
+
+impl<'a> WidgetSize for &'a Paragraph<'_> {
+    fn render_sized(&self, area: Rect, buf: &mut Buffer) -> Size {
+        self.render(area, buf);
+        self.minimum_size()
+    }
+
+    fn minimum_size(&self) -> Size {
+        let width = self.line_width() as u16;
+        let height = self.line_count(width) as u16;
+
+        Size { width, height }
     }
 }
