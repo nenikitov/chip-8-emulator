@@ -1,13 +1,13 @@
 use super::*;
-use crate::memory::*;
+use crate::chip_8::*;
 
 /// Instruction that can be executes on memory.
-pub trait ExecuteOnMemory {
-    fn execute(&self, memory: &mut Memory);
+pub trait ExecuteOnChip8 {
+    fn execute(&self, memory: &mut Chip8);
 }
 
-impl ExecuteOnMemory for Instruction {
-    fn execute(&self, memory: &mut Memory) {
+impl ExecuteOnChip8 for Instruction {
+    fn execute(&self, memory: &mut Chip8) {
         match *self {
             Instruction::System { address: _ } => {
                 unimplemented!("Executing machine code is not supported")
@@ -65,13 +65,13 @@ mod tests {
     #[test]
     #[should_panic(expected = "not implemented: Executing machine code is not supported")]
     fn instruction_execute_system_panics() {
-        let mut m = Memory::new();
+        let mut m = Chip8::default();
         Instruction::System { address: 0x123 }.execute(&mut m);
     }
 
     #[test]
     fn instruction_execute_display_clear() {
-        let mut m = Memory::new();
+        let mut m = Chip8::default();
         m.vram
             .iter_mut()
             .for_each(|e| e.iter_mut().for_each(|e| *e = true));
@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn instruction_execute_jump() {
-        let mut m = Memory::new();
+        let mut m = Chip8::default();
 
         Instruction::Jump { address: 0x123 }.execute(&mut m);
 
@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn instruction_execute_load_vx_value() {
-        let mut m = Memory::new();
+        let mut m = Chip8::default();
 
         Instruction::LoadVxValue { vx: 5, value: 0x32 }.execute(&mut m);
 
@@ -101,7 +101,7 @@ mod tests {
 
     #[test]
     fn instruction_execute_add_vx_value() {
-        let mut m = Memory::new();
+        let mut m = Chip8::default();
         m.v[4] = 1;
 
         Instruction::AddVxValue { vx: 4, value: 0x33 }.execute(&mut m);
@@ -111,7 +111,7 @@ mod tests {
 
     #[test]
     fn instruction_execute_load_i_value() {
-        let mut m = Memory::new();
+        let mut m = Chip8::default();
 
         Instruction::LoadIValue { value: 0x123 }.execute(&mut m);
 
@@ -120,7 +120,7 @@ mod tests {
 
     #[test]
     fn instruction_execute_display_draw() {
-        let mut m = Memory::new();
+        let mut m = Chip8::default();
         m.i = 0;
         m.ram[0] = 0b10111111;
         m.ram[1] = 0b01001001;
