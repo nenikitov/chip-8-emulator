@@ -1,3 +1,5 @@
+use crate::instruction::{ExecuteOnMemory, Instruction, Opcode};
+
 const FONT: [u8; 16 * 5] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -60,6 +62,25 @@ impl Memory {
         };
         memory.clear();
         memory
+    }
+
+    /// Perform a next instruction.
+    /// Should be called at around 500 - 1000 hz.
+    pub fn advance_instruction(&mut self) {
+        let opcode = Opcode::from((self.ram[self.pc as usize], self.ram[self.pc as usize + 1]));
+        self.pc += 2;
+        Instruction::from(opcode).execute(self);
+    }
+
+    /// Perform an update of the timer.
+    /// Should be called at a fixed rate of 60 hz.
+    pub fn advance_timer(&mut self) {
+        if self.dt > 0 {
+            self.dt -= 1;
+        }
+        if self.st > 0 {
+            self.st -= 1;
+        }
     }
 
     /// Reset all memory.

@@ -15,7 +15,7 @@ use chip_8::Chip8;
 use ui::AppWidget;
 use waiter::Waiter;
 
-const INSTRUCTIONS_PER_SECOND: usize = 1200;
+const INSTRUCTIONS_PER_SECOND: usize = 1000;
 const FRAMES_PER_SECOND: usize = 60;
 
 fn main() -> Result<(), i32> {

@@ -1,4 +1,4 @@
-use crate::{instruction::*, memory::*};
+use crate::memory::*;
 
 #[derive(Debug)]
 pub struct Chip8 {
@@ -23,12 +23,14 @@ impl Chip8 {
     }
 
     /// Perform a next instruction.
-    pub fn advance(&mut self) {
-        let opcode = Opcode::from((
-            self.memory.ram[self.memory.pc as usize],
-            self.memory.ram[self.memory.pc as usize + 1],
-        ));
-        self.memory.pc += 2;
-        Instruction::from(opcode).execute(&mut self.memory);
+    /// Should be called at around 500 - 1000 hz.
+    pub fn advance_instruction(&mut self) {
+        self.memory.advance_instruction();
+    }
+
+    /// Perform an update of the timer.
+    /// Should be called at a fixed rate of 60 hz.
+    pub fn advance_timer(&mut self) {
+        self.memory.advance_timer();
     }
 }

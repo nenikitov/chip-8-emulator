@@ -61,7 +61,7 @@ impl App {
             }
         }
 
-        self.chip.advance();
+        self.chip.advance_instruction();
     }
 
     pub fn state(&self) -> AppState {
