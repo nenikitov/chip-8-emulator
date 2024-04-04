@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 /// Instruction bytes split into multiple parts.
 pub struct Opcode {
     /// First nibble.
@@ -42,9 +42,9 @@ impl From<(u8, u8)> for Opcode {
     }
 }
 
-impl Into<(usize, usize, usize, usize, u16, u16)> for Opcode {
-    fn into(self) -> (usize, usize, usize, usize, u16, u16) {
-        (self.i, self.x, self.y, self.n, self.nn, self.nnn)
+impl From<Opcode> for (usize, usize, usize, usize, u16, u16) {
+    fn from(value: Opcode) -> Self {
+        (value.i, value.x, value.y, value.n, value.nn, value.nnn)
     }
 }
 

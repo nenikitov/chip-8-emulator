@@ -1,3 +1,4 @@
+use core::panic;
 use std::{cell::RefCell, time::Duration};
 
 use chip_8::Chip8;
@@ -45,8 +46,8 @@ impl App {
         self.timer_instructions.update();
 
         if poll(Duration::ZERO).expect("can poll terminal events") {
-            match event::read().expect("can read events") {
-                Event::Key(key) => match (key.kind, key.code) {
+            if let Event::Key(key) = event::read().expect("can read events") {
+                match (key.kind, key.code) {
                     (KeyEventKind::Press, KeyCode::Char('q')) => self.state = AppState::End,
                     (KeyEventKind::Press, KeyCode::Char('p')) => {
                         self.state = if self.state == AppState::InProgress {
@@ -56,12 +57,13 @@ impl App {
                         }
                     }
                     _ => (),
-                },
-                _ => (),
+                }
             }
         }
 
-        self.chip.advance();
+        if let Err(e) = self.chip.advance_instruction() {
+            panic!("{}", e);
+        };
     }
 
     pub fn state(&self) -> AppState {
@@ -135,7 +137,7 @@ impl<'a> Widget for AppWidget<'a> {
         };
 
         let screen = PixelDisplay {
-            display: self.app.chip.memory.vram.as_slice(),
+            display: self.app.chip.vram.as_slice(),
         };
 
         let emulator = LayoutAlign {

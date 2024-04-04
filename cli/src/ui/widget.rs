@@ -123,7 +123,7 @@ impl<'a> WidgetSize for LayoutLinear<'a> {
     }
 
     fn minimum_size(&self) -> Size {
-        if self.children.len() == 0 {
+        if self.children.is_empty() {
             Size::default()
         } else {
             let sizes: Vec<_> = self
@@ -177,7 +177,7 @@ impl<'a> WidgetSize for LayoutOverlay<'a> {
     }
 
     fn minimum_size(&self) -> Size {
-        if self.children.len() == 0 {
+        if self.children.is_empty() {
             Size::default()
         } else {
             let sizes: Vec<_> = self.children.iter().map(|c| c.minimum_size()).collect();
