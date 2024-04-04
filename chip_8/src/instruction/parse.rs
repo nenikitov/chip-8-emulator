@@ -21,7 +21,7 @@ pub enum Instruction {
         address: u16,
     },
     /// Load a value into register Vx.
-    LoadVxValue {
+    SetVxFromValue {
         vx: usize,
         value: u16,
     },
@@ -31,7 +31,7 @@ pub enum Instruction {
         value: u16,
     },
     /// Load a value into register I.
-    LoadIValue {
+    SetIFromValue {
         value: u16,
     },
     /// Display a sprite from register I with specified height in the coordinates from registers Vx and Vy.
@@ -66,6 +66,26 @@ pub enum Instruction {
         vx: usize,
         vy: usize,
     },
+    /// Load a value into register Vx from Vy.
+    SetVxFromVy {
+        vx: usize,
+        vy: usize,
+    },
+    /// Load a value into register Vx bitwise OR between Vx and Vy.
+    OrVxFromVy {
+        vx: usize,
+        vy: usize,
+    },
+    /// Load a value into register Vx bitwise AND between Vx and Vy.
+    AndVxFromVy {
+        vx: usize,
+        vy: usize,
+    },
+    /// Load a value into register Vx bitwise XOR between Vx and Vy.
+    XorVxFromVy {
+        vx: usize,
+        vy: usize,
+    },
 }
 
 impl TryFrom<Opcode> for Instruction {
@@ -83,10 +103,14 @@ impl TryFrom<Opcode> for Instruction {
             (0x3, _, _, _) => Instruction::SkipIfVxEquals { vx: x, value: nn },
             (0x4, _, _, _) => Instruction::SkipIfVxNotEquals { vx: x, value: nn },
             (0x5, _, _, 0x0) => Instruction::SkipIfVxEqualsVy { vx: x, vy: y },
-            (0x6, _, _, _) => Instruction::LoadVxValue { vx: x, value: nn },
+            (0x6, _, _, _) => Instruction::SetVxFromValue { vx: x, value: nn },
             (0x7, _, _, _) => Instruction::AddVxValue { vx: x, value: nn },
+            (0x8, _, _, 0x0) => Instruction::SetVxFromVy { vx: x, vy: y },
+            (0x8, _, _, 0x1) => Instruction::OrVxFromVy { vx: x, vy: y },
+            (0x8, _, _, 0x2) => Instruction::AndVxFromVy { vx: x, vy: y },
+            (0x8, _, _, 0x3) => Instruction::XorVxFromVy { vx: x, vy: y },
             (0x9, _, _, 0x0) => Instruction::SkipIfVxNotEqualsVy { vx: x, vy: y },
-            (0xA, _, _, _) => Instruction::LoadIValue { value: nnn },
+            (0xA, _, _, _) => Instruction::SetIFromValue { value: nnn },
             (0xD, _, _, _) => Instruction::DisplayDraw {
                 vx: x,
                 vy: y,
@@ -191,10 +215,10 @@ mod tests {
     }
 
     #[test]
-    fn from_opcode_6xnn_returns_load_vx_value() -> Result<()> {
+    fn from_opcode_6xnn_returns_set_vx_from_value() -> Result<()> {
         assert_eq!(
             Instruction::try_from(Opcode::from(0x6123)),
-            Ok(Instruction::LoadVxValue {
+            Ok(Instruction::SetVxFromValue {
                 vx: 0x1,
                 value: 0x23
             })
@@ -217,6 +241,46 @@ mod tests {
     }
 
     #[test]
+    fn from_opcode_8xy0_returns_set_vx_from_vy() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0x8120)),
+            Ok(Instruction::SetVxFromVy { vx: 0x1, vy: 0x2 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_8xy1_returns_or_vx_from_vy() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0x8121)),
+            Ok(Instruction::OrVxFromVy { vx: 0x1, vy: 0x2 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_8xy1_returns_and_vx_from_vy() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0x8122)),
+            Ok(Instruction::AndVxFromVy { vx: 0x1, vy: 0x2 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_8xy1_returns_xor_vx_from_vy() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0x8123)),
+            Ok(Instruction::XorVxFromVy { vx: 0x1, vy: 0x2 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn from_opcode_9xy0_returns_skip_if_vx_not_equals_vy() -> Result<()> {
         assert_eq!(
             Instruction::try_from(Opcode::from(0x9230)),
@@ -227,10 +291,10 @@ mod tests {
     }
 
     #[test]
-    fn from_opcode_axnn_returns_load_i_value() -> Result<()> {
+    fn from_opcode_axnn_returns_set_i_from_value() -> Result<()> {
         assert_eq!(
             Instruction::try_from(Opcode::from(0xA123)),
-            Ok(Instruction::LoadIValue { value: 0x123 })
+            Ok(Instruction::SetIFromValue { value: 0x123 })
         );
 
         Ok(())

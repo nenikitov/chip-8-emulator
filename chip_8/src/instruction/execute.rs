@@ -26,13 +26,13 @@ impl ExecuteOnChip8 for Instruction {
             Instruction::Jump { address } => {
                 chip.pc = address;
             }
-            Instruction::LoadVxValue { vx, value } => {
+            Instruction::SetVxFromValue { vx, value } => {
                 chip.v[vx] = value;
             }
             Instruction::AddVxValue { vx, value } => {
                 chip.v[vx] = chip.v[vx].wrapping_add(value);
             }
-            Instruction::LoadIValue { value } => {
+            Instruction::SetIFromValue { value } => {
                 chip.i = value;
             }
             Instruction::DisplayDraw { vx, vy, height } => {
@@ -92,6 +92,18 @@ impl ExecuteOnChip8 for Instruction {
                     chip.increment_pc();
                 }
             }
+            Instruction::SetVxFromVy { vx, vy } => {
+                chip.v[vx] = chip.v[vy];
+            }
+            Instruction::OrVxFromVy { vx, vy } => {
+                chip.v[vx] |= chip.v[vy];
+            }
+            Instruction::AndVxFromVy { vx, vy } => {
+                chip.v[vx] &= chip.v[vy];
+            }
+            Instruction::XorVxFromVy { vx, vy } => {
+                chip.v[vx] ^= chip.v[vy];
+            }
         };
 
         Ok(())
@@ -143,10 +155,10 @@ mod tests {
     }
 
     #[test]
-    fn execute_load_vx_value() -> Result<()> {
+    fn execute_set_vx_from_value() -> Result<()> {
         let mut c = Chip8::default();
 
-        Instruction::LoadVxValue { vx: 5, value: 0x32 }.execute(&mut c)?;
+        Instruction::SetVxFromValue { vx: 5, value: 0x32 }.execute(&mut c)?;
 
         assert_eq!(c.v[5], 0x32);
 
@@ -166,10 +178,10 @@ mod tests {
     }
 
     #[test]
-    fn execute_load_i_value() -> Result<()> {
+    fn execute_set_i_from_value() -> Result<()> {
         let mut c = Chip8::default();
 
-        Instruction::LoadIValue { value: 0x123 }.execute(&mut c)?;
+        Instruction::SetIFromValue { value: 0x123 }.execute(&mut c)?;
 
         assert_eq!(c.i, 0x123);
 
@@ -335,6 +347,66 @@ mod tests {
         c.v[0x3] = 0x17;
         Instruction::SkipIfVxNotEqualsVy { vx: 0x2, vy: 0x3 }.execute(&mut c)?;
         assert_eq!(c.pc, 16);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_set_vx_from_vy() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.v[1] = 0x10;
+        c.v[2] = 0x20;
+
+        Instruction::SetVxFromVy { vx: 1, vy: 2 }.execute(&mut c)?;
+
+        assert_eq!(c.v[1], 0x20);
+        assert_eq!(c.v[2], 0x20);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_or_vx_from_vy() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.v[1] = 0b101100;
+        c.v[2] = 0b010110;
+
+        Instruction::OrVxFromVy { vx: 1, vy: 2 }.execute(&mut c)?;
+
+        assert_eq!(c.v[1], 0b111110);
+        assert_eq!(c.v[2], 0b010110);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_and_vx_from_vy() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.v[1] = 0b101100;
+        c.v[2] = 0b010110;
+
+        Instruction::AndVxFromVy { vx: 1, vy: 2 }.execute(&mut c)?;
+
+        assert_eq!(c.v[1], 0b000100);
+        assert_eq!(c.v[2], 0b010110);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_xor_vx_from_vy() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.v[1] = 0b101100;
+        c.v[2] = 0b010110;
+
+        Instruction::XorVxFromVy { vx: 1, vy: 2 }.execute(&mut c)?;
+
+        assert_eq!(c.v[1], 0b111010);
+        assert_eq!(c.v[2], 0b010110);
 
         Ok(())
     }
