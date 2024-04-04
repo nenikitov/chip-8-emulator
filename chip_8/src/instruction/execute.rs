@@ -58,99 +58,104 @@ impl ExecuteOnMemory for Instruction {
     }
 }
 
-#[test]
-#[should_panic(expected = "not implemented: Executing machine code is not supported")]
-fn instruction_execute_system_panics() {
-    let mut m = Memory::new();
-    Instruction::System { address: 0x123 }.execute(&mut m);
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[test]
-fn instruction_execute_display_clear() {
-    let mut m = Memory::new();
-    m.vram
-        .iter_mut()
-        .for_each(|e| e.iter_mut().for_each(|e| *e = true));
-
-    Instruction::DisplayClear.execute(&mut m);
-
-    assert_eq!(m.vram, [[false; SIZE_DISPLAY.0]; SIZE_DISPLAY.1]);
-}
-
-#[test]
-fn instruction_execute_jump() {
-    let mut m = Memory::new();
-
-    Instruction::Jump { address: 0x123 }.execute(&mut m);
-
-    assert_eq!(m.pc, 0x123);
-}
-
-#[test]
-fn instruction_execute_load_vx_value() {
-    let mut m = Memory::new();
-
-    Instruction::LoadVxValue { vx: 5, value: 0x32 }.execute(&mut m);
-
-    assert_eq!(m.v[5], 0x32);
-}
-
-#[test]
-fn instruction_execute_add_vx_value() {
-    let mut m = Memory::new();
-    m.v[4] = 1;
-
-    Instruction::AddVxValue { vx: 4, value: 0x33 }.execute(&mut m);
-
-    assert_eq!(m.v[4], 0x34);
-}
-
-#[test]
-fn instruction_execute_load_i_value() {
-    let mut m = Memory::new();
-
-    Instruction::LoadIValue { value: 0x123 }.execute(&mut m);
-
-    assert_eq!(m.i, 0x123);
-}
-
-#[test]
-fn instruction_execute_display_draw() {
-    let mut m = Memory::new();
-    m.i = 0;
-    m.ram[0] = 0b10111111;
-    m.ram[1] = 0b01001001;
-    m.v[4] = 1;
-    m.v[6] = 2;
-    m.vram[2][1] = true;
-    m.vram[2][2] = true;
-    m.vram[2][3] = true;
-    m.vram[3][1] = true;
-    m.vram[3][2] = true;
-    m.vram[3][3] = true;
-
-    Instruction::DisplayDraw {
-        vx: 4,
-        vy: 6,
-        height: 2,
+    #[test]
+    #[should_panic(expected = "not implemented: Executing machine code is not supported")]
+    fn instruction_execute_system_panics() {
+        let mut m = Memory::new();
+        Instruction::System { address: 0x123 }.execute(&mut m);
     }
-    .execute(&mut m);
 
-    assert_eq!(m.vram[2][1], false);
-    assert_eq!(m.vram[2][2], true);
-    assert_eq!(m.vram[2][3], false);
-    assert_eq!(m.vram[2][4], true);
-    assert_eq!(m.vram[2][5], true);
-    assert_eq!(m.vram[2][6], true);
-    assert_eq!(m.vram[2][7], true);
-    assert_eq!(m.vram[2][8], true);
-    assert_eq!(m.vram[3][1], true);
-    assert_eq!(m.vram[3][2], false);
-    assert_eq!(m.vram[3][3], true);
-    assert_eq!(m.vram[3][4], false);
-    assert_eq!(m.vram[3][5], true);
-    assert_eq!(m.vram[3][6], false);
-    assert_eq!(m.vram[3][7], false);
-    assert_eq!(m.vram[3][8], true);
-    assert_eq!(m.v[0xF], 1);
+    #[test]
+    fn instruction_execute_display_clear() {
+        let mut m = Memory::new();
+        m.vram
+            .iter_mut()
+            .for_each(|e| e.iter_mut().for_each(|e| *e = true));
+
+        Instruction::DisplayClear.execute(&mut m);
+
+        assert_eq!(m.vram, [[false; SIZE_DISPLAY.0]; SIZE_DISPLAY.1]);
+    }
+
+    #[test]
+    fn instruction_execute_jump() {
+        let mut m = Memory::new();
+
+        Instruction::Jump { address: 0x123 }.execute(&mut m);
+
+        assert_eq!(m.pc, 0x123);
+    }
+
+    #[test]
+    fn instruction_execute_load_vx_value() {
+        let mut m = Memory::new();
+
+        Instruction::LoadVxValue { vx: 5, value: 0x32 }.execute(&mut m);
+
+        assert_eq!(m.v[5], 0x32);
+    }
+
+    #[test]
+    fn instruction_execute_add_vx_value() {
+        let mut m = Memory::new();
+        m.v[4] = 1;
+
+        Instruction::AddVxValue { vx: 4, value: 0x33 }.execute(&mut m);
+
+        assert_eq!(m.v[4], 0x34);
+    }
+
+    #[test]
+    fn instruction_execute_load_i_value() {
+        let mut m = Memory::new();
+
+        Instruction::LoadIValue { value: 0x123 }.execute(&mut m);
+
+        assert_eq!(m.i, 0x123);
+    }
+
+    #[test]
+    fn instruction_execute_display_draw() {
+        let mut m = Memory::new();
+        m.i = 0;
+        m.ram[0] = 0b10111111;
+        m.ram[1] = 0b01001001;
+        m.v[4] = 1;
+        m.v[6] = 2;
+        m.vram[2][1] = true;
+        m.vram[2][2] = true;
+        m.vram[2][3] = true;
+        m.vram[3][1] = true;
+        m.vram[3][2] = true;
+        m.vram[3][3] = true;
+
+        Instruction::DisplayDraw {
+            vx: 4,
+            vy: 6,
+            height: 2,
+        }
+        .execute(&mut m);
+
+        assert_eq!(m.vram[2][1], false);
+        assert_eq!(m.vram[2][2], true);
+        assert_eq!(m.vram[2][3], false);
+        assert_eq!(m.vram[2][4], true);
+        assert_eq!(m.vram[2][5], true);
+        assert_eq!(m.vram[2][6], true);
+        assert_eq!(m.vram[2][7], true);
+        assert_eq!(m.vram[2][8], true);
+        assert_eq!(m.vram[3][1], true);
+        assert_eq!(m.vram[3][2], false);
+        assert_eq!(m.vram[3][3], true);
+        assert_eq!(m.vram[3][4], false);
+        assert_eq!(m.vram[3][5], true);
+        assert_eq!(m.vram[3][6], false);
+        assert_eq!(m.vram[3][7], false);
+        assert_eq!(m.vram[3][8], true);
+        assert_eq!(m.v[0xF], 1);
+    }
 }

@@ -12,15 +12,14 @@ impl Chip8 {
         }
     }
 
-    /// Reset memory and load a ROM into RAM>
+    /// Reset memory and load a ROM into RAM.
     ///
     /// # Arguments
     ///
     /// * `program` - Program to load.
     pub fn load(&mut self, program: &[u8]) {
         self.memory.clear();
-        self.memory.ram[PROGRAM_START as usize..PROGRAM_START as usize + program.len()]
-            .copy_from_slice(program);
+        self.memory.ram[PROGRAM_START as usize..][..program.len()].copy_from_slice(program);
     }
 
     /// Perform a next instruction.

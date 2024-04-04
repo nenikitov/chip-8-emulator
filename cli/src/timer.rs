@@ -1,9 +1,9 @@
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 #[derive(Debug)]
 pub struct Timer {
     last_time: Instant,
-    current_time: Instant
+    current_time: Instant,
 }
 
 impl Timer {
@@ -11,7 +11,7 @@ impl Timer {
         let now = Instant::now();
         Self {
             last_time: now,
-            current_time: now
+            current_time: now,
         }
     }
 
@@ -23,5 +23,3 @@ impl Timer {
         self.current_time - self.last_time
     }
 }
-
-
