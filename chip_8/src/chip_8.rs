@@ -100,10 +100,14 @@ impl Chip8 {
     /// Should be called at around 500 - 1000 hz.
     pub fn advance_instruction(&mut self) -> Result<(), InstructionError> {
         let opcode = Opcode::from((self.ram[self.pc as usize], self.ram[self.pc as usize + 1]));
-        self.pc += 2;
+        self.increment_pc();
         Instruction::try_from(opcode)?.execute(self)?;
 
         Ok(())
+    }
+
+    pub(crate) fn increment_pc(&mut self) {
+        self.pc += 2;
     }
 
     /// Perform an update of the timer.
