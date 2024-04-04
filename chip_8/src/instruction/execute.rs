@@ -1,16 +1,23 @@
 use super::*;
 use crate::chip_8::*;
+use thiserror::Error;
+
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum ExecuteError {
+    #[error("instruction {0:?} is not supported")]
+    UnsupportedInstruction(Instruction),
+}
 
 /// Instruction that can be executes on memory.
 pub trait ExecuteOnChip8 {
-    fn execute(&self, memory: &mut Chip8);
+    fn execute(&self, memory: &mut Chip8) -> Result<(), ExecuteError>;
 }
 
 impl ExecuteOnChip8 for Instruction {
-    fn execute(&self, memory: &mut Chip8) {
+    fn execute(&self, memory: &mut Chip8) -> Result<(), ExecuteError> {
         match *self {
             Instruction::System { address: _ } => {
-                unimplemented!("Executing machine code is not supported")
+                return Err(ExecuteError::UnsupportedInstruction(*self))
             }
             Instruction::DisplayClear => memory
                 .vram
@@ -55,71 +62,91 @@ impl ExecuteOnChip8 for Instruction {
                 }
             }
         };
+
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use eyre::Result;
+
     use super::*;
 
     #[test]
-    #[should_panic(expected = "not implemented: Executing machine code is not supported")]
-    fn instruction_execute_system_panics() {
+    fn instruction_execute_system_unsupported() -> Result<()> {
         let mut m = Chip8::default();
-        Instruction::System { address: 0x123 }.execute(&mut m);
+        assert_eq!(
+            Instruction::System { address: 0x123 }.execute(&mut m),
+            Err(ExecuteError::UnsupportedInstruction(Instruction::System {
+                address: 0x123
+            }))
+        );
+
+        Ok(())
     }
 
     #[test]
-    fn instruction_execute_display_clear() {
+    fn instruction_execute_display_clear() -> Result<()> {
         let mut m = Chip8::default();
         m.vram
             .iter_mut()
             .for_each(|e| e.iter_mut().for_each(|e| *e = true));
 
-        Instruction::DisplayClear.execute(&mut m);
+        Instruction::DisplayClear.execute(&mut m)?;
 
         assert_eq!(m.vram, [[false; SIZE_DISPLAY.0]; SIZE_DISPLAY.1]);
+
+        Ok(())
     }
 
     #[test]
-    fn instruction_execute_jump() {
+    fn instruction_execute_jump() -> Result<()> {
         let mut m = Chip8::default();
 
-        Instruction::Jump { address: 0x123 }.execute(&mut m);
+        Instruction::Jump { address: 0x123 }.execute(&mut m)?;
 
         assert_eq!(m.pc, 0x123);
+
+        Ok(())
     }
 
     #[test]
-    fn instruction_execute_load_vx_value() {
+    fn instruction_execute_load_vx_value() -> Result<()> {
         let mut m = Chip8::default();
 
-        Instruction::LoadVxValue { vx: 5, value: 0x32 }.execute(&mut m);
+        Instruction::LoadVxValue { vx: 5, value: 0x32 }.execute(&mut m)?;
 
         assert_eq!(m.v[5], 0x32);
+
+        Ok(())
     }
 
     #[test]
-    fn instruction_execute_add_vx_value() {
+    fn instruction_execute_add_vx_value() -> Result<()> {
         let mut m = Chip8::default();
         m.v[4] = 1;
 
-        Instruction::AddVxValue { vx: 4, value: 0x33 }.execute(&mut m);
+        Instruction::AddVxValue { vx: 4, value: 0x33 }.execute(&mut m)?;
 
         assert_eq!(m.v[4], 0x34);
+
+        Ok(())
     }
 
     #[test]
-    fn instruction_execute_load_i_value() {
+    fn instruction_execute_load_i_value() -> Result<()> {
         let mut m = Chip8::default();
 
-        Instruction::LoadIValue { value: 0x123 }.execute(&mut m);
+        Instruction::LoadIValue { value: 0x123 }.execute(&mut m)?;
 
         assert_eq!(m.i, 0x123);
+
+        Ok(())
     }
 
     #[test]
-    fn instruction_execute_display_draw() {
+    fn instruction_execute_display_draw() -> Result<()> {
         let mut m = Chip8::default();
         m.i = 0;
         m.ram[0] = 0b10111111;
@@ -138,7 +165,7 @@ mod tests {
             vy: 6,
             height: 2,
         }
-        .execute(&mut m);
+        .execute(&mut m)?;
 
         assert_eq!(m.vram[2][1], false);
         assert_eq!(m.vram[2][2], true);
@@ -157,5 +184,7 @@ mod tests {
         assert_eq!(m.vram[3][7], false);
         assert_eq!(m.vram[3][8], true);
         assert_eq!(m.v[0xF], 1);
+
+        Ok(())
     }
 }

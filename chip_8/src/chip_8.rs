@@ -1,4 +1,25 @@
 use crate::instruction::*;
+use thiserror::Error;
+
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum InstructionError {
+    #[error("parse error {0}")]
+    ParseError(ParseError),
+    #[error("execute error {0}")]
+    ExecuteError(ExecuteError),
+}
+
+impl From<ParseError> for InstructionError {
+    fn from(value: ParseError) -> Self {
+        Self::ParseError(value)
+    }
+}
+
+impl From<ExecuteError> for InstructionError {
+    fn from(value: ExecuteError) -> Self {
+        Self::ExecuteError(value)
+    }
+}
 
 const FONT: [u8; 16 * 5] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -77,10 +98,12 @@ impl Chip8 {
 
     /// Perform a next instruction.
     /// Should be called at around 500 - 1000 hz.
-    pub fn advance_instruction(&mut self) {
+    pub fn advance_instruction(&mut self) -> Result<(), InstructionError> {
         let opcode = Opcode::from((self.ram[self.pc as usize], self.ram[self.pc as usize + 1]));
         self.pc += 2;
-        Instruction::from(opcode).execute(self);
+        Instruction::try_from(opcode)?.execute(self)?;
+
+        Ok(())
     }
 
     /// Perform an update of the timer.

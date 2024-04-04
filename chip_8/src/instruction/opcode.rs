@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 /// Instruction bytes split into multiple parts.
 pub struct Opcode {
     /// First nibble.

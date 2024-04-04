@@ -1,3 +1,4 @@
+use core::panic;
 use std::{cell::RefCell, time::Duration};
 
 use chip_8::Chip8;
@@ -61,7 +62,9 @@ impl App {
             }
         }
 
-        self.chip.advance_instruction();
+        if let Err(e) = self.chip.advance_instruction() {
+            panic!("{}", e);
+        };
     }
 
     pub fn state(&self) -> AppState {

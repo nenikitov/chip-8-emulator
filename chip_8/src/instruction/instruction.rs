@@ -1,5 +1,5 @@
 /// CPU instruction with required arguments.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Instruction {
     /// Execute machine code routine at address.
     System { address: u16 },
