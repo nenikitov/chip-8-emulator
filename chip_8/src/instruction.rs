@@ -1,10 +1,26 @@
 mod execute;
-mod instruction;
 mod opcode;
 mod parse;
 
+/// CPU instruction with required arguments.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Instruction {
+    /// Execute machine code routine at address.
+    System { address: u16 },
+    /// Clear the display (VRAM).
+    DisplayClear,
+    /// Jump to an instruction at address.
+    Jump { address: u16 },
+    /// Load a value into register Vx.
+    LoadVxValue { vx: usize, value: u16 },
+    /// Add a value to register Vx.
+    AddVxValue { vx: usize, value: u16 },
+    /// Load a value into register I.
+    LoadIValue { value: u16 },
+    /// Display a sprite from register I with specified height in the coordinates from registers Vx and Vy.
+    DisplayDraw { vx: usize, vy: usize, height: u16 },
+}
+
 pub use execute::{ExecuteError, ExecuteOnChip8};
-pub use instruction::Instruction;
 pub use opcode::Opcode;
 pub use parse::ParseError;
-

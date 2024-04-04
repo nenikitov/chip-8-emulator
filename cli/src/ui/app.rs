@@ -46,8 +46,8 @@ impl App {
         self.timer_instructions.update();
 
         if poll(Duration::ZERO).expect("can poll terminal events") {
-            match event::read().expect("can read events") {
-                Event::Key(key) => match (key.kind, key.code) {
+            if let Event::Key(key) = event::read().expect("can read events") {
+                match (key.kind, key.code) {
                     (KeyEventKind::Press, KeyCode::Char('q')) => self.state = AppState::End,
                     (KeyEventKind::Press, KeyCode::Char('p')) => {
                         self.state = if self.state == AppState::InProgress {
@@ -57,8 +57,7 @@ impl App {
                         }
                     }
                     _ => (),
-                },
-                _ => (),
+                }
             }
         }
 
