@@ -20,7 +20,7 @@ const FRAMES_PER_SECOND: usize = 60;
 
 fn main() -> Result<(), i32> {
     let mut chip = Chip8::default();
-    chip.load(include_bytes!("../../roms/ibm.ch8"));
+    chip.load(include_bytes!("../../roms/test_opcode.ch8"));
 
     let mut terminal = ui::start_ui().map_err(|_| 1)?;
     ui::panic_hook();

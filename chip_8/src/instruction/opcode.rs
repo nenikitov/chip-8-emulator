@@ -10,7 +10,7 @@ pub struct Opcode {
     /// Forth nibble.
     n: usize,
     /// Last byte.
-    nn: u16,
+    nn: u8,
     /// Last 12-bit word.
     nnn: u16,
 }
@@ -29,7 +29,7 @@ impl From<u16> for Opcode {
             x: x as usize,
             y: y as usize,
             n: n as usize,
-            nn,
+            nn: nn as u8,
             nnn,
         }
     }
@@ -42,7 +42,7 @@ impl From<(u8, u8)> for Opcode {
     }
 }
 
-impl From<Opcode> for (usize, usize, usize, usize, u16, u16) {
+impl From<Opcode> for (usize, usize, usize, usize, u8, u16) {
     fn from(value: Opcode) -> Self {
         (value.i, value.x, value.y, value.n, value.nn, value.nnn)
     }
