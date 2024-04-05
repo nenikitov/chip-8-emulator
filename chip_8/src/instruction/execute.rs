@@ -26,21 +26,21 @@ impl ExecuteOnChip8 for Instruction {
             Instruction::Jump { address } => {
                 chip.pc = address;
             }
-            Instruction::SetVxFromValue { vx, value } => {
+            Instruction::SetVxWithValue { vx, value } => {
                 chip.v[vx] = value;
             }
             Instruction::AddVxValue { vx, value } => {
                 chip.v[vx] = chip.v[vx].wrapping_add(value);
             }
-            Instruction::SetIFromValue { value } => {
+            Instruction::SetIWithValue { value } => {
                 chip.i = value;
             }
             Instruction::DisplayDraw { vx, vy, height } => {
-                let x = chip.v[vx] % SIZE_DISPLAY.0 as u16;
-                let y = chip.v[vy] % SIZE_DISPLAY.1 as u16;
+                let x = chip.v[vx] % SIZE_DISPLAY.0 as u8;
+                let y = chip.v[vy] % SIZE_DISPLAY.1 as u8;
                 chip.v[0xF] = 0;
                 'rows: for r in 0..(height) {
-                    let row = chip.ram[(chip.i + r) as usize];
+                    let row = chip.ram[(chip.i + r as u16) as usize];
                     'pixels: for p in 0..8 {
                         let pixel = row & (1 << (7 - p));
                         let pixel = pixel != 0;
@@ -92,17 +92,22 @@ impl ExecuteOnChip8 for Instruction {
                     chip.increment_pc();
                 }
             }
-            Instruction::SetVxFromVy { vx, vy } => {
+            Instruction::SetVxWithVy { vx, vy } => {
                 chip.v[vx] = chip.v[vy];
             }
-            Instruction::OrVxFromVy { vx, vy } => {
+            Instruction::OrVxWithVy { vx, vy } => {
                 chip.v[vx] |= chip.v[vy];
             }
-            Instruction::AndVxFromVy { vx, vy } => {
+            Instruction::AndVxWithVy { vx, vy } => {
                 chip.v[vx] &= chip.v[vy];
             }
-            Instruction::XorVxFromVy { vx, vy } => {
+            Instruction::XorVxWithVy { vx, vy } => {
                 chip.v[vx] ^= chip.v[vy];
+            }
+            Instruction::AddVxWithVy { vx, vy } => {
+                let (result, overflow) = chip.v[vx].overflowing_add(chip.v[vy]);
+                chip.v[vx] = result;
+                chip.v[0xF] = overflow.into();
             }
         };
 
@@ -155,10 +160,10 @@ mod tests {
     }
 
     #[test]
-    fn execute_set_vx_from_value() -> Result<()> {
+    fn execute_set_vx_with_value() -> Result<()> {
         let mut c = Chip8::default();
 
-        Instruction::SetVxFromValue { vx: 5, value: 0x32 }.execute(&mut c)?;
+        Instruction::SetVxWithValue { vx: 5, value: 0x32 }.execute(&mut c)?;
 
         assert_eq!(c.v[5], 0x32);
 
@@ -178,10 +183,24 @@ mod tests {
     }
 
     #[test]
-    fn execute_set_i_from_value() -> Result<()> {
+    fn execute_add_vx_value_overflow() -> Result<()> {
+        let mut c = Chip8::default();
+        c.v[4] = 0xFF;
+        c.v[0xF] = 0x30;
+
+        Instruction::AddVxValue { vx: 4, value: 0x2 }.execute(&mut c)?;
+
+        assert_eq!(c.v[4], 0x1);
+        assert_eq!(c.v[0xF], 0x30);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_set_i_with_value() -> Result<()> {
         let mut c = Chip8::default();
 
-        Instruction::SetIFromValue { value: 0x123 }.execute(&mut c)?;
+        Instruction::SetIWithValue { value: 0x123 }.execute(&mut c)?;
 
         assert_eq!(c.i, 0x123);
 
@@ -352,13 +371,13 @@ mod tests {
     }
 
     #[test]
-    fn execute_set_vx_from_vy() -> Result<()> {
+    fn execute_set_vx_with_vy() -> Result<()> {
         let mut c = Chip8::default();
 
         c.v[1] = 0x10;
         c.v[2] = 0x20;
 
-        Instruction::SetVxFromVy { vx: 1, vy: 2 }.execute(&mut c)?;
+        Instruction::SetVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
 
         assert_eq!(c.v[1], 0x20);
         assert_eq!(c.v[2], 0x20);
@@ -367,13 +386,13 @@ mod tests {
     }
 
     #[test]
-    fn execute_or_vx_from_vy() -> Result<()> {
+    fn execute_or_vx_with_vy() -> Result<()> {
         let mut c = Chip8::default();
 
         c.v[1] = 0b101100;
         c.v[2] = 0b010110;
 
-        Instruction::OrVxFromVy { vx: 1, vy: 2 }.execute(&mut c)?;
+        Instruction::OrVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
 
         assert_eq!(c.v[1], 0b111110);
         assert_eq!(c.v[2], 0b010110);
@@ -382,13 +401,13 @@ mod tests {
     }
 
     #[test]
-    fn execute_and_vx_from_vy() -> Result<()> {
+    fn execute_and_vx_with_vy() -> Result<()> {
         let mut c = Chip8::default();
 
         c.v[1] = 0b101100;
         c.v[2] = 0b010110;
 
-        Instruction::AndVxFromVy { vx: 1, vy: 2 }.execute(&mut c)?;
+        Instruction::AndVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
 
         assert_eq!(c.v[1], 0b000100);
         assert_eq!(c.v[2], 0b010110);
@@ -397,16 +416,50 @@ mod tests {
     }
 
     #[test]
-    fn execute_xor_vx_from_vy() -> Result<()> {
+    fn execute_xor_vx_with_vy() -> Result<()> {
         let mut c = Chip8::default();
 
         c.v[1] = 0b101100;
         c.v[2] = 0b010110;
 
-        Instruction::XorVxFromVy { vx: 1, vy: 2 }.execute(&mut c)?;
+        Instruction::XorVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
 
         assert_eq!(c.v[1], 0b111010);
         assert_eq!(c.v[2], 0b010110);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_add_vx_with_vy() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.v[1] = 15;
+        c.v[2] = 17;
+        c.v[0xF] = 3;
+
+        Instruction::AddVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
+
+        assert_eq!(c.v[1], 32);
+        assert_eq!(c.v[2], 17);
+        assert_eq!(c.v[0xF], 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_add_vx_with_vy_overflow() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.v[1] = 0xFF;
+        c.v[2] = 2;
+        c.v[0xF] = 3;
+
+        Instruction::AddVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
+
+        assert_eq!(c.v[1], 1);
+        assert_eq!(c.v[2], 2);
+        assert_eq!(c.v[0xF], 1);
 
         Ok(())
     }

@@ -65,7 +65,7 @@ pub struct Chip8 {
     /// Index register often used to store memory addresses.
     pub i: u16,
     /// General purpose registers.
-    pub v: [u16; 16],
+    pub v: [u8; 16],
 }
 
 impl Default for Chip8 {
