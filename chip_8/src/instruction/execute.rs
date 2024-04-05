@@ -109,6 +109,16 @@ impl ExecuteOnChip8 for Instruction {
                 chip.v[vx] = result;
                 chip.v[0xF] = overflow.into();
             }
+            Instruction::SubtractVxWithVy { vx, vy } => {
+                let (result, underflow) = chip.v[vx].overflowing_sub(chip.v[vy]);
+                chip.v[vx] = result;
+                chip.v[0xF] = (!underflow).into();
+            }
+            Instruction::SubtractVyWithVx { vx, vy } => {
+                let (result, underflow) = chip.v[vy].overflowing_sub(chip.v[vx]);
+                chip.v[vx] = result;
+                chip.v[0xF] = (!underflow).into();
+            }
         };
 
         Ok(())
@@ -460,6 +470,74 @@ mod tests {
         assert_eq!(c.v[1], 1);
         assert_eq!(c.v[2], 2);
         assert_eq!(c.v[0xF], 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_subtract_vx_with_vy() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.v[1] = 17;
+        c.v[2] = 15;
+        c.v[0xF] = 3;
+
+        Instruction::SubtractVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
+
+        assert_eq!(c.v[1], 2);
+        assert_eq!(c.v[2], 15);
+        assert_eq!(c.v[0xF], 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_subtract_vx_with_vy_overflow() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.v[1] = 15;
+        c.v[2] = 17;
+        c.v[0xF] = 3;
+
+        Instruction::SubtractVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
+
+        assert_eq!(c.v[1], 254);
+        assert_eq!(c.v[2], 17);
+        assert_eq!(c.v[0xF], 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_subtract_vy_with_vx() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.v[1] = 15;
+        c.v[2] = 17;
+        c.v[0xF] = 3;
+
+        Instruction::SubtractVyWithVx { vx: 1, vy: 2 }.execute(&mut c)?;
+
+        assert_eq!(c.v[1], 2);
+        assert_eq!(c.v[2], 17);
+        assert_eq!(c.v[0xF], 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_subtract_vy_with_vx_overflow() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.v[1] = 17;
+        c.v[2] = 15;
+        c.v[0xF] = 3;
+
+        Instruction::SubtractVyWithVx { vx: 1, vy: 2 }.execute(&mut c)?;
+
+        assert_eq!(c.v[1], 254);
+        assert_eq!(c.v[2], 15);
+        assert_eq!(c.v[0xF], 0);
 
         Ok(())
     }

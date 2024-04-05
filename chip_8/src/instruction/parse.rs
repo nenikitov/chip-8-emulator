@@ -91,6 +91,16 @@ pub enum Instruction {
         vx: usize,
         vy: usize,
     },
+    /// Load a value into register Vx the difference Vx between and Vy and set the carry flag.
+    SubtractVxWithVy {
+        vx: usize,
+        vy: usize,
+    },
+    /// Load a value into register Vx the difference between Vy and Vx and set the carry flag.
+    SubtractVyWithVx {
+        vx: usize,
+        vy: usize,
+    },
 }
 
 impl TryFrom<Opcode> for Instruction {
@@ -115,6 +125,8 @@ impl TryFrom<Opcode> for Instruction {
             (0x8, _, _, 0x2) => Instruction::AndVxWithVy { vx: x, vy: y },
             (0x8, _, _, 0x3) => Instruction::XorVxWithVy { vx: x, vy: y },
             (0x8, _, _, 0x4) => Instruction::AddVxWithVy { vx: x, vy: y },
+            (0x8, _, _, 0x5) => Instruction::SubtractVxWithVy { vx: x, vy: y },
+            (0x8, _, _, 0x7) => Instruction::SubtractVyWithVx { vx: x, vy: y },
             (0x9, _, _, 0x0) => Instruction::SkipIfVxNotEqualsVy { vx: x, vy: y },
             (0xA, _, _, _) => Instruction::SetIWithValue { value: nnn },
             (0xD, _, _, _) => Instruction::DisplayDraw {
@@ -291,6 +303,26 @@ mod tests {
         assert_eq!(
             Instruction::try_from(Opcode::from(0x8124)),
             Ok(Instruction::AddVxWithVy { vx: 0x1, vy: 0x2 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_8xy5_returns_subtract_vx_with_vy() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0x8125)),
+            Ok(Instruction::SubtractVxWithVy { vx: 0x1, vy: 0x2 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_8xy7_returns_subtract_vy_with_vx() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0x8127)),
+            Ok(Instruction::SubtractVyWithVx { vx: 0x1, vy: 0x2 })
         );
 
         Ok(())
