@@ -8,39 +8,38 @@ pub enum ExecuteError {
     UnsupportedInstruction(Instruction),
 }
 
-/// Instruction that can be executes on memory.
-pub trait ExecuteOnChip8 {
-    fn execute(&self, chip: &mut Chip8) -> Result<(), ExecuteError>;
+pub trait ExecuteInstruction {
+    fn execute(&mut self, instruction: &Instruction) -> Result<(), ExecuteError>;
 }
 
-impl ExecuteOnChip8 for Instruction {
-    fn execute(&self, chip: &mut Chip8) -> Result<(), ExecuteError> {
-        match *self {
+impl ExecuteInstruction for Chip8 {
+    fn execute(&mut self, instruction: &Instruction) -> Result<(), ExecuteError> {
+        match *instruction {
             Instruction::System { address: _ } => {
-                return Err(ExecuteError::UnsupportedInstruction(*self))
+                return Err(ExecuteError::UnsupportedInstruction(*instruction))
             }
-            Instruction::DisplayClear => chip
+            Instruction::DisplayClear => self
                 .vram
                 .iter_mut()
                 .for_each(|e| e.iter_mut().for_each(|e| *e = false)),
             Instruction::Jump { address } => {
-                chip.pc = address;
+                self.pc = address;
             }
             Instruction::SetVxWithValue { vx, value } => {
-                chip.v[vx] = value;
+                self.v[vx] = value;
             }
             Instruction::AddVxValue { vx, value } => {
-                chip.v[vx] = chip.v[vx].wrapping_add(value);
+                self.v[vx] = self.v[vx].wrapping_add(value);
             }
             Instruction::SetIWithValue { value } => {
-                chip.i = value;
+                self.i = value;
             }
             Instruction::DisplayDraw { vx, vy, height } => {
-                let x = chip.v[vx] % SIZE_DISPLAY.0 as u8;
-                let y = chip.v[vy] % SIZE_DISPLAY.1 as u8;
-                chip.v[0xF] = 0;
+                let x = self.v[vx] % SIZE_DISPLAY.0 as u8;
+                let y = self.v[vy] % SIZE_DISPLAY.1 as u8;
+                self.v[0xF] = 0;
                 'rows: for r in 0..(height) {
-                    let row = chip.ram[(chip.i + r as u16) as usize];
+                    let row = self.ram[(self.i + r as u16) as usize];
                     'pixels: for p in 0..8 {
                         let pixel = row & (1 << (7 - p));
                         let pixel = pixel != 0;
@@ -53,71 +52,71 @@ impl ExecuteOnChip8 for Instruction {
                             if y >= SIZE_DISPLAY.1 {
                                 break 'rows;
                             }
-                            chip.vram[y][x] ^= pixel;
-                            if !chip.vram[y][x] {
-                                chip.v[0xF] = 1;
+                            self.vram[y][x] ^= pixel;
+                            if !self.vram[y][x] {
+                                self.v[0xF] = 1;
                             }
                         }
                     }
                 }
             }
             Instruction::SubroutineReturn => {
-                if let Some(pc) = chip.stack.pop() {
-                    chip.pc = pc
+                if let Some(pc) = self.stack.pop() {
+                    self.pc = pc
                 } else {
                     todo!("Figure out what to do on the last return");
                 }
             }
             Instruction::SubroutineCall { address } => {
-                chip.stack.push(chip.pc);
-                chip.pc = address
+                self.stack.push(self.pc);
+                self.pc = address
             }
             Instruction::SkipIfVxEquals { vx, value } => {
-                if chip.v[vx] == value {
-                    chip.increment_pc();
+                if self.v[vx] == value {
+                    self.increment_pc();
                 }
             }
             Instruction::SkipIfVxNotEquals { vx, value } => {
-                if chip.v[vx] != value {
-                    chip.increment_pc();
+                if self.v[vx] != value {
+                    self.increment_pc();
                 }
             }
             Instruction::SkipIfVxEqualsVy { vx, vy } => {
-                if chip.v[vx] == chip.v[vy] {
-                    chip.increment_pc();
+                if self.v[vx] == self.v[vy] {
+                    self.increment_pc();
                 }
             }
             Instruction::SkipIfVxNotEqualsVy { vx, vy } => {
-                if chip.v[vx] != chip.v[vy] {
-                    chip.increment_pc();
+                if self.v[vx] != self.v[vy] {
+                    self.increment_pc();
                 }
             }
             Instruction::SetVxWithVy { vx, vy } => {
-                chip.v[vx] = chip.v[vy];
+                self.v[vx] = self.v[vy];
             }
             Instruction::OrVxWithVy { vx, vy } => {
-                chip.v[vx] |= chip.v[vy];
+                self.v[vx] |= self.v[vy];
             }
             Instruction::AndVxWithVy { vx, vy } => {
-                chip.v[vx] &= chip.v[vy];
+                self.v[vx] &= self.v[vy];
             }
             Instruction::XorVxWithVy { vx, vy } => {
-                chip.v[vx] ^= chip.v[vy];
+                self.v[vx] ^= self.v[vy];
             }
             Instruction::AddVxWithVy { vx, vy } => {
-                let (result, overflow) = chip.v[vx].overflowing_add(chip.v[vy]);
-                chip.v[vx] = result;
-                chip.v[0xF] = overflow.into();
+                let (result, overflow) = self.v[vx].overflowing_add(self.v[vy]);
+                self.v[vx] = result;
+                self.v[0xF] = overflow.into();
             }
             Instruction::SubtractVxWithVy { vx, vy } => {
-                let (result, underflow) = chip.v[vx].overflowing_sub(chip.v[vy]);
-                chip.v[vx] = result;
-                chip.v[0xF] = (!underflow).into();
+                let (result, underflow) = self.v[vx].overflowing_sub(self.v[vy]);
+                self.v[vx] = result;
+                self.v[0xF] = (!underflow).into();
             }
             Instruction::SubtractVyWithVx { vx, vy } => {
-                let (result, underflow) = chip.v[vy].overflowing_sub(chip.v[vx]);
-                chip.v[vx] = result;
-                chip.v[0xF] = (!underflow).into();
+                let (result, underflow) = self.v[vy].overflowing_sub(self.v[vx]);
+                self.v[vx] = result;
+                self.v[0xF] = (!underflow).into();
             }
         };
 
@@ -135,7 +134,7 @@ mod tests {
     fn execute_system_unsupported() -> Result<()> {
         let mut c = Chip8::default();
         assert_eq!(
-            Instruction::System { address: 0x123 }.execute(&mut c),
+            c.execute(&Instruction::System { address: 0x123 }),
             Err(ExecuteError::UnsupportedInstruction(Instruction::System {
                 address: 0x123
             }))
@@ -151,7 +150,7 @@ mod tests {
             .iter_mut()
             .for_each(|e| e.iter_mut().for_each(|e| *e = true));
 
-        Instruction::DisplayClear.execute(&mut c)?;
+        c.execute(&Instruction::DisplayClear)?;
 
         assert_eq!(c.vram, [[false; SIZE_DISPLAY.0]; SIZE_DISPLAY.1]);
 
@@ -162,7 +161,7 @@ mod tests {
     fn execute_jump() -> Result<()> {
         let mut c = Chip8::default();
 
-        Instruction::Jump { address: 0x123 }.execute(&mut c)?;
+        c.execute(&Instruction::Jump { address: 0x123 })?;
 
         assert_eq!(c.pc, 0x123);
 
@@ -173,7 +172,7 @@ mod tests {
     fn execute_set_vx_with_value() -> Result<()> {
         let mut c = Chip8::default();
 
-        Instruction::SetVxWithValue { vx: 5, value: 0x32 }.execute(&mut c)?;
+        c.execute(&Instruction::SetVxWithValue { vx: 5, value: 0x32 })?;
 
         assert_eq!(c.v[5], 0x32);
 
@@ -185,7 +184,7 @@ mod tests {
         let mut c = Chip8::default();
         c.v[4] = 1;
 
-        Instruction::AddVxValue { vx: 4, value: 0x33 }.execute(&mut c)?;
+        c.execute(&Instruction::AddVxValue { vx: 4, value: 0x33 })?;
 
         assert_eq!(c.v[4], 0x34);
 
@@ -198,7 +197,7 @@ mod tests {
         c.v[4] = 0xFF;
         c.v[0xF] = 0x30;
 
-        Instruction::AddVxValue { vx: 4, value: 0x2 }.execute(&mut c)?;
+        c.execute(&Instruction::AddVxValue { vx: 4, value: 0x2 })?;
 
         assert_eq!(c.v[4], 0x1);
         assert_eq!(c.v[0xF], 0x30);
@@ -210,7 +209,7 @@ mod tests {
     fn execute_set_i_with_value() -> Result<()> {
         let mut c = Chip8::default();
 
-        Instruction::SetIWithValue { value: 0x123 }.execute(&mut c)?;
+        c.execute(&Instruction::SetIWithValue { value: 0x123 })?;
 
         assert_eq!(c.i, 0x123);
 
@@ -232,12 +231,11 @@ mod tests {
         c.vram[3][2] = true;
         c.vram[3][3] = true;
 
-        Instruction::DisplayDraw {
+        c.execute(&Instruction::DisplayDraw {
             vx: 4,
             vy: 6,
             height: 2,
-        }
-        .execute(&mut c)?;
+        })?;
 
         assert_eq!(c.vram[2][1], false);
         assert_eq!(c.vram[2][2], true);
@@ -264,13 +262,13 @@ mod tests {
     fn execute_subroutine_call() -> Result<()> {
         let mut c = Chip8::default();
 
-        Instruction::Jump { address: 0x123 }.execute(&mut c)?;
+        c.execute(&Instruction::Jump { address: 0x123 })?;
 
-        Instruction::SubroutineCall { address: 0x234 }.execute(&mut c)?;
+        c.execute(&Instruction::SubroutineCall { address: 0x234 })?;
         assert_eq!(c.pc, 0x234);
         assert_eq!(c.stack, vec![0x123]);
 
-        Instruction::SubroutineCall { address: 0x345 }.execute(&mut c)?;
+        c.execute(&Instruction::SubroutineCall { address: 0x345 })?;
         assert_eq!(c.pc, 0x345);
         assert_eq!(c.stack, vec![0x123, 0x234]);
 
@@ -281,15 +279,15 @@ mod tests {
     fn execute_subroutine_return() -> Result<()> {
         let mut c = Chip8::default();
 
-        Instruction::Jump { address: 0x123 }.execute(&mut c)?;
-        Instruction::SubroutineCall { address: 0x234 }.execute(&mut c)?;
-        Instruction::SubroutineCall { address: 0x345 }.execute(&mut c)?;
+        c.execute(&Instruction::Jump { address: 0x123 })?;
+        c.execute(&Instruction::SubroutineCall { address: 0x234 })?;
+        c.execute(&Instruction::SubroutineCall { address: 0x345 })?;
 
-        Instruction::SubroutineReturn.execute(&mut c)?;
+        c.execute(&Instruction::SubroutineReturn)?;
         assert_eq!(c.pc, 0x234);
         assert_eq!(c.stack, vec![0x123]);
 
-        Instruction::SubroutineReturn.execute(&mut c)?;
+        c.execute(&Instruction::SubroutineReturn)?;
         assert_eq!(c.pc, 0x123);
         assert_eq!(c.stack, vec![]);
 
@@ -303,18 +301,16 @@ mod tests {
         c.pc = 14;
         c.v[0x2] = 0x34;
 
-        Instruction::SkipIfVxEquals {
+        c.execute(&Instruction::SkipIfVxEquals {
             vx: 0x2,
             value: 0x0,
-        }
-        .execute(&mut c)?;
+        })?;
         assert_eq!(c.pc, 14);
 
-        Instruction::SkipIfVxEquals {
+        c.execute(&Instruction::SkipIfVxEquals {
             vx: 0x2,
             value: 0x34,
-        }
-        .execute(&mut c)?;
+        })?;
         assert_eq!(c.pc, 16);
 
         Ok(())
@@ -327,18 +323,16 @@ mod tests {
         c.pc = 14;
         c.v[0x2] = 0x34;
 
-        Instruction::SkipIfVxNotEquals {
+        c.execute(&Instruction::SkipIfVxNotEquals {
             vx: 0x2,
             value: 0x34,
-        }
-        .execute(&mut c)?;
+        })?;
         assert_eq!(c.pc, 14);
 
-        Instruction::SkipIfVxNotEquals {
+        c.execute(&Instruction::SkipIfVxNotEquals {
             vx: 0x2,
             value: 0x0,
-        }
-        .execute(&mut c)?;
+        })?;
         assert_eq!(c.pc, 16);
 
         Ok(())
@@ -352,11 +346,11 @@ mod tests {
         c.v[0x2] = 0x34;
         c.v[0x3] = 0x17;
 
-        Instruction::SkipIfVxEqualsVy { vx: 0x2, vy: 0x3 }.execute(&mut c)?;
+        c.execute(&Instruction::SkipIfVxEqualsVy { vx: 0x2, vy: 0x3 })?;
         assert_eq!(c.pc, 14);
 
         c.v[0x3] = 0x34;
-        Instruction::SkipIfVxEqualsVy { vx: 0x2, vy: 0x3 }.execute(&mut c)?;
+        c.execute(&Instruction::SkipIfVxEqualsVy { vx: 0x2, vy: 0x3 })?;
         assert_eq!(c.pc, 16);
 
         Ok(())
@@ -370,11 +364,11 @@ mod tests {
         c.v[0x2] = 0x34;
         c.v[0x3] = 0x34;
 
-        Instruction::SkipIfVxNotEqualsVy { vx: 0x2, vy: 0x3 }.execute(&mut c)?;
+        c.execute(&Instruction::SkipIfVxNotEqualsVy { vx: 0x2, vy: 0x3 })?;
         assert_eq!(c.pc, 14);
 
         c.v[0x3] = 0x17;
-        Instruction::SkipIfVxNotEqualsVy { vx: 0x2, vy: 0x3 }.execute(&mut c)?;
+        c.execute(&Instruction::SkipIfVxNotEqualsVy { vx: 0x2, vy: 0x3 })?;
         assert_eq!(c.pc, 16);
 
         Ok(())
@@ -387,7 +381,7 @@ mod tests {
         c.v[1] = 0x10;
         c.v[2] = 0x20;
 
-        Instruction::SetVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
+        c.execute(&Instruction::SetVxWithVy { vx: 1, vy: 2 })?;
 
         assert_eq!(c.v[1], 0x20);
         assert_eq!(c.v[2], 0x20);
@@ -402,7 +396,7 @@ mod tests {
         c.v[1] = 0b101100;
         c.v[2] = 0b010110;
 
-        Instruction::OrVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
+        c.execute(&Instruction::OrVxWithVy { vx: 1, vy: 2 })?;
 
         assert_eq!(c.v[1], 0b111110);
         assert_eq!(c.v[2], 0b010110);
@@ -417,7 +411,7 @@ mod tests {
         c.v[1] = 0b101100;
         c.v[2] = 0b010110;
 
-        Instruction::AndVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
+        c.execute(&Instruction::AndVxWithVy { vx: 1, vy: 2 })?;
 
         assert_eq!(c.v[1], 0b000100);
         assert_eq!(c.v[2], 0b010110);
@@ -432,7 +426,7 @@ mod tests {
         c.v[1] = 0b101100;
         c.v[2] = 0b010110;
 
-        Instruction::XorVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
+        c.execute(&Instruction::XorVxWithVy { vx: 1, vy: 2 })?;
 
         assert_eq!(c.v[1], 0b111010);
         assert_eq!(c.v[2], 0b010110);
@@ -448,7 +442,7 @@ mod tests {
         c.v[2] = 17;
         c.v[0xF] = 3;
 
-        Instruction::AddVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
+        c.execute(&Instruction::AddVxWithVy { vx: 1, vy: 2 })?;
 
         assert_eq!(c.v[1], 32);
         assert_eq!(c.v[2], 17);
@@ -465,7 +459,7 @@ mod tests {
         c.v[2] = 2;
         c.v[0xF] = 3;
 
-        Instruction::AddVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
+        c.execute(&Instruction::AddVxWithVy { vx: 1, vy: 2 })?;
 
         assert_eq!(c.v[1], 1);
         assert_eq!(c.v[2], 2);
@@ -482,7 +476,7 @@ mod tests {
         c.v[2] = 15;
         c.v[0xF] = 3;
 
-        Instruction::SubtractVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
+        c.execute(&Instruction::SubtractVxWithVy { vx: 1, vy: 2 })?;
 
         assert_eq!(c.v[1], 2);
         assert_eq!(c.v[2], 15);
@@ -499,7 +493,7 @@ mod tests {
         c.v[2] = 17;
         c.v[0xF] = 3;
 
-        Instruction::SubtractVxWithVy { vx: 1, vy: 2 }.execute(&mut c)?;
+        c.execute(&Instruction::SubtractVxWithVy { vx: 1, vy: 2 })?;
 
         assert_eq!(c.v[1], 254);
         assert_eq!(c.v[2], 17);
@@ -516,7 +510,7 @@ mod tests {
         c.v[2] = 17;
         c.v[0xF] = 3;
 
-        Instruction::SubtractVyWithVx { vx: 1, vy: 2 }.execute(&mut c)?;
+        c.execute(&Instruction::SubtractVyWithVx { vx: 1, vy: 2 })?;
 
         assert_eq!(c.v[1], 2);
         assert_eq!(c.v[2], 17);
@@ -533,7 +527,7 @@ mod tests {
         c.v[2] = 15;
         c.v[0xF] = 3;
 
-        Instruction::SubtractVyWithVx { vx: 1, vy: 2 }.execute(&mut c)?;
+        c.execute(&Instruction::SubtractVyWithVx { vx: 1, vy: 2 })?;
 
         assert_eq!(c.v[1], 254);
         assert_eq!(c.v[2], 15);

@@ -101,7 +101,7 @@ impl Chip8 {
     pub fn advance_instruction(&mut self) -> Result<(), InstructionError> {
         let opcode = Opcode::from((self.ram[self.pc as usize], self.ram[self.pc as usize + 1]));
         self.increment_pc();
-        Instruction::try_from(opcode)?.execute(self)?;
+        self.execute(&Instruction::try_from(opcode)?)?;
 
         Ok(())
     }
