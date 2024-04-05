@@ -1,3 +1,5 @@
+#![feature(slice_flatten)]
+
 mod chip_8;
 mod instruction;
 

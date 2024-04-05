@@ -137,7 +137,7 @@ impl<'a> Widget for AppWidget<'a> {
         };
 
         let screen = PixelDisplay {
-            display: self.app.chip.vram.as_slice(),
+            display: self.app.chip.memory().vram.as_slice(),
         };
 
         let emulator = LayoutAlign {
