@@ -9,6 +9,11 @@ pub enum ExecuteError {
 }
 
 pub trait ExecuteInstruction {
+    /// Execute a given instruction.
+    ///
+    /// # Errors
+    ///
+    /// If the instruction did not execute correctly.
     fn execute(&mut self, instruction: &Instruction) -> Result<(), ExecuteError>;
 }
 
@@ -64,14 +69,14 @@ impl ExecuteInstruction for Chip8 {
             }
             Instruction::SubroutineReturn => {
                 if let Some(pc) = memory.stack.pop() {
-                    memory.pc = pc
+                    memory.pc = pc;
                 } else {
                     todo!("Figure out what to do on the last return");
                 }
             }
             Instruction::SubroutineCall { address } => {
                 memory.stack.push(memory.pc);
-                memory.pc = address
+                memory.pc = address;
             }
             Instruction::SkipIfVxEquals { vx, value } => {
                 if memory.v[vx] == value {
