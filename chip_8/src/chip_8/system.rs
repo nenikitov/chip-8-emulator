@@ -73,4 +73,31 @@ impl Chip8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use eyre::Result;
+
+    #[test]
+    fn advance_instruction_works() -> Result<()> {
+        let mut c = Chip8::new();
+
+        c.load(&[
+            0x61, 0x02, // Load 2 into register 1
+            0x71, 0x03, // Add 3 to register 1
+        ]);
+
+        assert_eq!(c.memory.v[1], 0);
+        assert_eq!(c.memory.pc, Memory::PROGRAM_START);
+
+        c.advance_instruction()?;
+
+        assert_eq!(c.memory.v[1], 2);
+        assert_eq!(c.memory.pc, Memory::PROGRAM_START + 2);
+
+        c.advance_instruction()?;
+
+        assert_eq!(c.memory.v[1], 5);
+        assert_eq!(c.memory.pc, Memory::PROGRAM_START + 4);
+
+        Ok(())
+    }
 }
