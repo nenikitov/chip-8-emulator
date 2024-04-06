@@ -135,13 +135,17 @@ pub struct Memory {
     pub i: u16,
     /// General purpose registers.
     pub v: [u8; Self::SIZE_REGISTERS],
+    /// If the keys are pressed.
+    pub keys: [bool; Self::SIZE_KEYS],
 }
 
 impl Memory {
     pub const SIZE_RAM: usize = 4 * 1024;
     pub const SIZE_REGISTERS: usize = 16;
+    pub const SIZE_KEYS: usize = 16;
     pub const SIZE_DISPLAY_WIDTH: usize = 64;
     pub const SIZE_DISPLAY_HEIGHT: usize = 32;
+
     pub const PROGRAM_START: u16 = 0x200;
 
     pub const INDEX_FLAG_REGISTER: usize = Self::SIZE_REGISTERS - 1;
@@ -158,6 +162,7 @@ impl Default for Memory {
             st: 0,
             i: 0,
             v: [0; Self::SIZE_REGISTERS],
+            keys: [false; Self::SIZE_KEYS],
         };
         s.clear_memory();
         s

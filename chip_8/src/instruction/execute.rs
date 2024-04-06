@@ -79,12 +79,12 @@ impl ExecuteInstruction for Chip8 {
                 memory.stack.push(memory.pc);
                 memory.pc = address;
             }
-            Instruction::SkipIfVxEquals { vx, value } => {
+            Instruction::SkipIfVxEqualsValue { vx, value } => {
                 if memory.v[vx] == value {
                     memory.increment_pc();
                 }
             }
-            Instruction::SkipIfVxNotEquals { vx, value } => {
+            Instruction::SkipIfVxNotEqualsValue { vx, value } => {
                 if memory.v[vx] != value {
                     memory.increment_pc();
                 }
@@ -124,7 +124,7 @@ impl ExecuteInstruction for Chip8 {
             Instruction::SubtractVyWithVx { vx, vy } => {
                 let (result, underflow) = memory.v[vy].overflowing_sub(memory.v[vx]);
                 memory.v[vx] = result;
-                memory.v[Memory::INDEX_FLAG_REGISTER] = (!underflow).into()
+                memory.v[Memory::INDEX_FLAG_REGISTER] = (!underflow).into();
             }
             Instruction::Shift1RightVxWithVy { vx, vy } => {
                 if !config.shift_ignores_vy {
@@ -152,6 +152,24 @@ impl ExecuteInstruction for Chip8 {
             }
             Instruction::SetVxWithRandom { vx, value } => {
                 memory.v[vx] = rand::random::<u8>() & value;
+            }
+            Instruction::SkipIfVxKeyPressed { vx } => {
+                if let Some(&key) = memory.keys.get(memory.v[vx] as usize) {
+                    if key {
+                        memory.increment_pc();
+                    }
+                } else {
+                    todo!("Figure out what to do on invalid key");
+                }
+            }
+            Instruction::SkipIfVxKeyNotPressed { vx } => {
+                if let Some(&key) = memory.keys.get(memory.v[vx] as usize) {
+                    if !key {
+                        memory.increment_pc();
+                    }
+                } else {
+                    todo!("Figure out what to do on invalid key");
+                }
             }
         };
 
@@ -334,19 +352,13 @@ mod tests {
     }
 
     #[test]
-    fn execute_skip_if_vx_equals() -> Result<()> {
+    fn execute_skip_if_vx_equals_value_equals() -> Result<()> {
         let mut c = Chip8::default();
 
         c.memory.pc = 14;
         c.memory.v[0x2] = 0x34;
 
-        c.execute(&Instruction::SkipIfVxEquals {
-            vx: 0x2,
-            value: 0x0,
-        })?;
-        assert_eq!(c.memory.pc, 14);
-
-        c.execute(&Instruction::SkipIfVxEquals {
+        c.execute(&Instruction::SkipIfVxEqualsValue {
             vx: 0x2,
             value: 0x34,
         })?;
@@ -356,19 +368,29 @@ mod tests {
     }
 
     #[test]
-    fn execute_skip_if_vx_not_equals() -> Result<()> {
+    fn execute_skip_if_vx_equals_value_not_equals() -> Result<()> {
         let mut c = Chip8::default();
 
         c.memory.pc = 14;
         c.memory.v[0x2] = 0x34;
 
-        c.execute(&Instruction::SkipIfVxNotEquals {
+        c.execute(&Instruction::SkipIfVxEqualsValue {
             vx: 0x2,
-            value: 0x34,
+            value: 0x0,
         })?;
         assert_eq!(c.memory.pc, 14);
 
-        c.execute(&Instruction::SkipIfVxNotEquals {
+        Ok(())
+    }
+
+    #[test]
+    fn execute_skip_if_vx_not_equals_value_not_equals() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.memory.pc = 14;
+        c.memory.v[0x2] = 0x34;
+
+        c.execute(&Instruction::SkipIfVxNotEqualsValue {
             vx: 0x2,
             value: 0x0,
         })?;
@@ -378,17 +400,29 @@ mod tests {
     }
 
     #[test]
-    fn execute_skip_if_vx_equals_vy() -> Result<()> {
+    fn execute_skip_if_vx_not_equals_value_equals() -> Result<()> {
         let mut c = Chip8::default();
 
         c.memory.pc = 14;
         c.memory.v[0x2] = 0x34;
-        c.memory.v[0x3] = 0x17;
 
-        c.execute(&Instruction::SkipIfVxEqualsVy { vx: 0x2, vy: 0x3 })?;
+        c.execute(&Instruction::SkipIfVxNotEqualsValue {
+            vx: 0x2,
+            value: 0x34,
+        })?;
         assert_eq!(c.memory.pc, 14);
 
+        Ok(())
+    }
+
+    #[test]
+    fn execute_skip_if_vx_equals_vy_equals() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.memory.pc = 14;
+        c.memory.v[0x2] = 0x34;
         c.memory.v[0x3] = 0x34;
+
         c.execute(&Instruction::SkipIfVxEqualsVy { vx: 0x2, vy: 0x3 })?;
         assert_eq!(c.memory.pc, 16);
 
@@ -396,7 +430,35 @@ mod tests {
     }
 
     #[test]
-    fn execute_skip_if_vx_not_equals_vy() -> Result<()> {
+    fn execute_skip_if_vx_equals_vy_not_equals() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.memory.pc = 14;
+        c.memory.v[0x2] = 0x17;
+        c.memory.v[0x3] = 0x34;
+
+        c.execute(&Instruction::SkipIfVxEqualsVy { vx: 0x2, vy: 0x3 })?;
+        assert_eq!(c.memory.pc, 14);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_skip_if_vx_not_equals_vy_not_equals() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.memory.pc = 14;
+        c.memory.v[0x2] = 0x17;
+        c.memory.v[0x3] = 0x34;
+
+        c.execute(&Instruction::SkipIfVxNotEqualsVy { vx: 0x2, vy: 0x3 })?;
+        assert_eq!(c.memory.pc, 16);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_skip_if_vx_not_equals_vy_equals() -> Result<()> {
         let mut c = Chip8::default();
 
         c.memory.pc = 14;
@@ -405,10 +467,6 @@ mod tests {
 
         c.execute(&Instruction::SkipIfVxNotEqualsVy { vx: 0x2, vy: 0x3 })?;
         assert_eq!(c.memory.pc, 14);
-
-        c.memory.v[0x3] = 0x17;
-        c.execute(&Instruction::SkipIfVxNotEqualsVy { vx: 0x2, vy: 0x3 })?;
-        assert_eq!(c.memory.pc, 16);
 
         Ok(())
     }
@@ -702,6 +760,62 @@ mod tests {
 
         // TODO(nenikitov): Figure out how to seed and test RNG
         assert_eq!(c.memory.v[1] & 0b00110011, 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_skip_if_vx_key_pressed_pressed() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.memory.pc = 14;
+        c.memory.v[0x2] = 0x3;
+        c.memory.keys[0x3] = true;
+
+        c.execute(&Instruction::SkipIfVxKeyPressed { vx: 0x2 })?;
+        assert_eq!(c.memory.pc, 16);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_skip_if_vx_key_pressed_not_pressed() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.memory.pc = 14;
+        c.memory.v[0x2] = 0x3;
+        c.memory.keys[0x3] = false;
+
+        c.execute(&Instruction::SkipIfVxKeyPressed { vx: 0x2 })?;
+        assert_eq!(c.memory.pc, 14);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_skip_if_vx_key_not_pressed_not_pressed() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.memory.pc = 14;
+        c.memory.v[0x2] = 0x3;
+        c.memory.keys[0x3] = false;
+
+        c.execute(&Instruction::SkipIfVxKeyNotPressed { vx: 0x2 })?;
+        assert_eq!(c.memory.pc, 16);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_skip_if_vx_key_not_pressed_pressed() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.memory.pc = 14;
+        c.memory.v[0x2] = 0x3;
+        c.memory.keys[0x3] = true;
+
+        c.execute(&Instruction::SkipIfVxKeyNotPressed { vx: 0x2 })?;
+        assert_eq!(c.memory.pc, 14);
 
         Ok(())
     }

@@ -9,7 +9,7 @@
     clippy::must_use_candidate,
     clippy::too_many_lines,
     clippy::unreadable_literal,
-    clippy::wildcard_imports,
+    clippy::wildcard_imports
 )]
 #![warn(unused_imports)]
 

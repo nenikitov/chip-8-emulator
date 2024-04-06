@@ -47,12 +47,12 @@ pub enum Instruction {
         address: u16,
     },
     // Skip the next instruction if value in a register Vx equals to a given value.
-    SkipIfVxEquals {
+    SkipIfVxEqualsValue {
         vx: usize,
         value: u8,
     },
     // Skip the next instruction if value in a register Vx does not equal to a given value.
-    SkipIfVxNotEquals {
+    SkipIfVxNotEqualsValue {
         vx: usize,
         value: u8,
     },
@@ -124,6 +124,14 @@ pub enum Instruction {
         vx: usize,
         value: u8,
     },
+    // Skip the next instruction if a key stored in register Vx is pressed.
+    SkipIfVxKeyPressed {
+        vx: usize,
+    },
+    // Skip the next instruction if a key stored in register Vx is not pressed.
+    SkipIfVxKeyNotPressed {
+        vx: usize,
+    },
 }
 
 impl TryFrom<Opcode> for Instruction {
@@ -138,8 +146,8 @@ impl TryFrom<Opcode> for Instruction {
             (0x0, _, _, _) => Instruction::System { address: nnn },
             (0x1, _, _, _) => Instruction::Jump { address: nnn },
             (0x2, _, _, _) => Instruction::SubroutineCall { address: nnn },
-            (0x3, _, _, _) => Instruction::SkipIfVxEquals { vx: x, value: nn },
-            (0x4, _, _, _) => Instruction::SkipIfVxNotEquals { vx: x, value: nn },
+            (0x3, _, _, _) => Instruction::SkipIfVxEqualsValue { vx: x, value: nn },
+            (0x4, _, _, _) => Instruction::SkipIfVxNotEqualsValue { vx: x, value: nn },
             (0x5, _, _, 0x0) => Instruction::SkipIfVxEqualsVy { vx: x, vy: y },
             (0x6, _, _, _) => Instruction::SetVxWithValue { vx: x, value: nn },
             (0x7, _, _, _) => Instruction::AddVxValue { vx: x, value: nn },
@@ -164,6 +172,8 @@ impl TryFrom<Opcode> for Instruction {
                 vy: y,
                 height: n as u8,
             },
+            (0xE, _, 0x9, 0xE) => Instruction::SkipIfVxKeyPressed { vx: x },
+            (0xE, _, 0xA, 0x1) => Instruction::SkipIfVxKeyNotPressed { vx: x },
             _ => return Err(ParseError::UnknownOpcode(value)),
         };
 
@@ -227,10 +237,10 @@ mod tests {
     }
 
     #[test]
-    fn from_opcode_3xnn_returns_skip_if_vx_equals() -> Result<()> {
+    fn from_opcode_3xnn_returns_skip_if_vx_equals_value() -> Result<()> {
         assert_eq!(
             Instruction::try_from(Opcode::from(0x3123)),
-            Ok(Instruction::SkipIfVxEquals {
+            Ok(Instruction::SkipIfVxEqualsValue {
                 vx: 0x1,
                 value: 0x23
             })
@@ -240,10 +250,10 @@ mod tests {
     }
 
     #[test]
-    fn from_opcode_4xnn_returns_skip_if_vx_not_equals() -> Result<()> {
+    fn from_opcode_4xnn_returns_skip_if_vx_not_equals_value() -> Result<()> {
         assert_eq!(
             Instruction::try_from(Opcode::from(0x4234)),
-            Ok(Instruction::SkipIfVxNotEquals {
+            Ok(Instruction::SkipIfVxNotEqualsValue {
                 vx: 0x2,
                 value: 0x34
             })
@@ -433,6 +443,26 @@ mod tests {
                 vy: 0x2,
                 height: 0x3
             })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_ex9e_returns_skip_if_vx_key_pressed() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0xE19E)),
+            Ok(Instruction::SkipIfVxKeyPressed { vx: 0x1 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_exa1_returns_skip_if_vx_key_not_pressed() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0xE1A1)),
+            Ok(Instruction::SkipIfVxKeyNotPressed { vx: 0x1 })
         );
 
         Ok(())

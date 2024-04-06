@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Config {
     pub shift_ignores_vy: bool,
     pub jump_reads_from_vx: bool,

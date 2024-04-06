@@ -24,9 +24,18 @@ impl From<ExecuteError> for InstructionError {
     }
 }
 
+#[derive(Default, Debug, PartialEq, Eq)]
+pub(crate) enum State {
+    #[default]
+    Ready,
+    WaitingForKey(u8),
+}
+
+#[derive(Debug)]
 pub struct Chip8 {
-    pub(crate) memory: Memory,
     pub(crate) config: Config,
+    pub(crate) memory: Memory,
+    pub(crate) state: State,
 }
 
 impl Default for Chip8 {
@@ -44,8 +53,9 @@ impl Chip8 {
     // TODO(nenikitov): Add configuration parameter here
     pub fn new(config: Config) -> Self {
         Self {
-            memory: Memory::default(),
             config,
+            memory: Memory::default(),
+            state: State::default(),
         }
     }
 
@@ -65,12 +75,14 @@ impl Chip8 {
     ///
     /// If the instruction did not execute correctly.
     pub fn advance_instruction(&mut self) -> Result<(), InstructionError> {
-        let opcode = Opcode::from((
-            self.memory.ram[self.memory.pc as usize],
-            self.memory.ram[self.memory.pc as usize + 1],
-        ));
-        self.memory.increment_pc();
-        self.execute(&Instruction::try_from(opcode)?)?;
+        if self.state == State::Ready {
+            let opcode = Opcode::from((
+                self.memory.ram[self.memory.pc as usize],
+                self.memory.ram[self.memory.pc as usize + 1],
+            ));
+            self.memory.increment_pc();
+            self.execute(&Instruction::try_from(opcode)?)?;
+        }
 
         Ok(())
     }
@@ -96,7 +108,7 @@ mod tests {
     use eyre::Result;
 
     #[test]
-    fn advance_instruction_works() -> Result<()> {
+    fn advance_instruction_ready() -> Result<()> {
         let mut c = Chip8::default();
 
         c.load(&[
@@ -116,6 +128,28 @@ mod tests {
 
         assert_eq!(c.memory.v[1], 5);
         assert_eq!(c.memory.pc, Memory::PROGRAM_START + 4);
+
+        Ok(())
+    }
+
+    #[test]
+    fn advance_instruction_waiting() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.state = State::WaitingForKey(0);
+
+        c.load(&[
+            0x61, 0x02, // Load 2 into register 1
+            0x71, 0x03, // Add 3 to register 1
+        ]);
+
+        assert_eq!(c.memory.v[1], 0);
+        assert_eq!(c.memory.pc, Memory::PROGRAM_START);
+
+        c.advance_instruction()?;
+
+        assert_eq!(c.memory.v[1], 0);
+        assert_eq!(c.memory.pc, Memory::PROGRAM_START);
 
         Ok(())
     }
