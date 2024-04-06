@@ -20,6 +20,7 @@ pub trait ExecuteInstruction {
 impl ExecuteInstruction for Chip8 {
     fn execute(&mut self, instruction: &Instruction) -> Result<(), ExecuteError> {
         let memory = &mut self.memory;
+        let config = &self.config;
 
         match *instruction {
             Instruction::System { address: _ } => {
@@ -139,7 +140,7 @@ mod tests {
 
     #[test]
     fn execute_system_unsupported() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
         assert_eq!(
             c.execute(&Instruction::System { address: 0x123 }),
             Err(ExecuteError::UnsupportedInstruction(Instruction::System {
@@ -152,7 +153,7 @@ mod tests {
 
     #[test]
     fn execute_display_clear() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
         c.memory
             .vram
             .iter_mut()
@@ -170,7 +171,7 @@ mod tests {
 
     #[test]
     fn execute_jump() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.execute(&Instruction::Jump { address: 0x123 })?;
 
@@ -181,7 +182,7 @@ mod tests {
 
     #[test]
     fn execute_set_vx_with_value() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.execute(&Instruction::SetVxWithValue { vx: 5, value: 0x32 })?;
 
@@ -192,7 +193,7 @@ mod tests {
 
     #[test]
     fn execute_add_vx_value() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
         c.memory.v[4] = 1;
 
         c.execute(&Instruction::AddVxValue { vx: 4, value: 0x33 })?;
@@ -204,7 +205,7 @@ mod tests {
 
     #[test]
     fn execute_add_vx_value_overflow() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
         c.memory.v[4] = 0xFF;
         c.memory.v[0xF] = 0x30;
 
@@ -218,7 +219,7 @@ mod tests {
 
     #[test]
     fn execute_set_i_with_value() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.execute(&Instruction::SetIWithValue { value: 0x123 })?;
 
@@ -229,7 +230,7 @@ mod tests {
 
     #[test]
     fn execute_display_draw() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
         c.memory.i = 0;
         c.memory.ram[0] = 0b10111111;
         c.memory.ram[1] = 0b01001001;
@@ -271,7 +272,7 @@ mod tests {
 
     #[test]
     fn execute_subroutine_call() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.execute(&Instruction::Jump { address: 0x123 })?;
 
@@ -288,7 +289,7 @@ mod tests {
 
     #[test]
     fn execute_subroutine_return() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.execute(&Instruction::Jump { address: 0x123 })?;
         c.execute(&Instruction::SubroutineCall { address: 0x234 })?;
@@ -307,7 +308,7 @@ mod tests {
 
     #[test]
     fn execute_skip_if_vx_equals() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.memory.pc = 14;
         c.memory.v[0x2] = 0x34;
@@ -329,7 +330,7 @@ mod tests {
 
     #[test]
     fn execute_skip_if_vx_not_equals() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.memory.pc = 14;
         c.memory.v[0x2] = 0x34;
@@ -351,7 +352,7 @@ mod tests {
 
     #[test]
     fn execute_skip_if_vx_equals_vy() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.memory.pc = 14;
         c.memory.v[0x2] = 0x34;
@@ -369,7 +370,7 @@ mod tests {
 
     #[test]
     fn execute_skip_if_vx_not_equals_vy() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.memory.pc = 14;
         c.memory.v[0x2] = 0x34;
@@ -387,7 +388,7 @@ mod tests {
 
     #[test]
     fn execute_set_vx_with_vy() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.memory.v[1] = 0x10;
         c.memory.v[2] = 0x20;
@@ -402,7 +403,7 @@ mod tests {
 
     #[test]
     fn execute_or_vx_with_vy() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.memory.v[1] = 0b101100;
         c.memory.v[2] = 0b010110;
@@ -417,7 +418,7 @@ mod tests {
 
     #[test]
     fn execute_and_vx_with_vy() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.memory.v[1] = 0b101100;
         c.memory.v[2] = 0b010110;
@@ -432,7 +433,7 @@ mod tests {
 
     #[test]
     fn execute_xor_vx_with_vy() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.memory.v[1] = 0b101100;
         c.memory.v[2] = 0b010110;
@@ -447,7 +448,7 @@ mod tests {
 
     #[test]
     fn execute_add_vx_with_vy() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.memory.v[1] = 15;
         c.memory.v[2] = 17;
@@ -464,7 +465,7 @@ mod tests {
 
     #[test]
     fn execute_add_vx_with_vy_overflow() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.memory.v[1] = 0xFF;
         c.memory.v[2] = 2;
@@ -481,7 +482,7 @@ mod tests {
 
     #[test]
     fn execute_subtract_vx_with_vy() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.memory.v[1] = 17;
         c.memory.v[2] = 15;
@@ -498,7 +499,7 @@ mod tests {
 
     #[test]
     fn execute_subtract_vx_with_vy_overflow() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.memory.v[1] = 15;
         c.memory.v[2] = 17;
@@ -515,7 +516,7 @@ mod tests {
 
     #[test]
     fn execute_subtract_vy_with_vx() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.memory.v[1] = 15;
         c.memory.v[2] = 17;
@@ -532,7 +533,7 @@ mod tests {
 
     #[test]
     fn execute_subtract_vy_with_vx_overflow() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.memory.v[1] = 17;
         c.memory.v[2] = 15;

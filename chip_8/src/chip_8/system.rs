@@ -26,13 +26,26 @@ impl From<ExecuteError> for InstructionError {
 
 pub struct Chip8 {
     pub(crate) memory: Memory,
+    pub(crate) config: Config,
+}
+
+impl Default for Chip8 {
+    fn default() -> Self {
+        Self::new(Config::default())
+    }
+}
+
+impl Chip8 {
+    /// How many times per second should the timer update.
+    pub const FREQUENCY_TIMER_UPDATE: usize = 60;
 }
 
 impl Chip8 {
     // TODO(nenikitov): Add configuration parameter here
-    pub fn new() -> Self {
+    pub fn new(config: Config) -> Self {
         Self {
             memory: Memory::default(),
+            config,
         }
     }
 
@@ -63,7 +76,9 @@ impl Chip8 {
     }
 
     /// Perform an update of the timer.
+    ///
     /// Should be called at a fixed rate of 60 hz.
+    /// The constant is [`Chip8::FREQUENCY_TIMER_UPDATE`]
     pub fn advance_timer(&mut self) {
         self.memory.advance_timer();
     }
@@ -82,7 +97,7 @@ mod tests {
 
     #[test]
     fn advance_instruction_works() -> Result<()> {
-        let mut c = Chip8::new();
+        let mut c = Chip8::default();
 
         c.load(&[
             0x61, 0x02, // Load 2 into register 1
