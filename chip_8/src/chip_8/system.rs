@@ -42,11 +42,15 @@ impl Chip8 {
     ///
     /// * `program` - Program to load.
     pub fn load(&mut self, rom: &[u8]) {
-        self.memory.load(rom)
+        self.memory.load(rom);
     }
 
     /// Perform a fetch decode execute cycle.
     /// Should be called at around 500-1000hz.
+    ///
+    /// # Errors
+    ///
+    /// If the instruction did not execute correctly.
     pub fn advance_instruction(&mut self) -> Result<(), InstructionError> {
         let opcode = Opcode::from((
             self.memory.ram[self.memory.pc as usize],
