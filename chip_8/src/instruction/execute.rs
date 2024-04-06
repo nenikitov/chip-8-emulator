@@ -171,6 +171,15 @@ impl ExecuteInstruction for Chip8 {
                     todo!("Figure out what to do on invalid key");
                 }
             }
+            Instruction::SetVxWithDt { vx } => {
+                memory.v[vx] = memory.dt;
+            }
+            Instruction::SetDtWithVx { vx } => {
+                memory.dt = memory.v[vx];
+            }
+            Instruction::SetStWithVx { vx } => {
+                memory.st = memory.v[vx];
+            }
         };
 
         Ok(())
@@ -816,6 +825,45 @@ mod tests {
 
         c.execute(&Instruction::SkipIfVxKeyNotPressed { vx: 0x2 })?;
         assert_eq!(c.memory.pc, 14);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_set_vx_with_dt() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.memory.dt = 40;
+
+        c.execute(&Instruction::SetVxWithDt { vx: 0x2 })?;
+
+        assert_eq!(c.memory.v[0x2], 40);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_set_dt_with_vx() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.memory.v[0x2] = 40;
+
+        c.execute(&Instruction::SetDtWithVx { vx: 0x2 })?;
+
+        assert_eq!(c.memory.dt, 40);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_set_st_with_vx() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.memory.v[0x2] = 40;
+
+        c.execute(&Instruction::SetStWithVx { vx: 0x2 })?;
+
+        assert_eq!(c.memory.st, 40);
 
         Ok(())
     }

@@ -132,6 +132,18 @@ pub enum Instruction {
     SkipIfVxKeyNotPressed {
         vx: usize,
     },
+    // Load a value from delay timer into Vx.
+    SetVxWithDt {
+        vx: usize,
+    },
+    // Load a value from Vx into delay timer.
+    SetDtWithVx {
+        vx: usize,
+    },
+    // Load a value from Vx into sound timer.
+    SetStWithVx {
+        vx: usize,
+    },
 }
 
 impl TryFrom<Opcode> for Instruction {
@@ -174,6 +186,9 @@ impl TryFrom<Opcode> for Instruction {
             },
             (0xE, _, 0x9, 0xE) => Instruction::SkipIfVxKeyPressed { vx: x },
             (0xE, _, 0xA, 0x1) => Instruction::SkipIfVxKeyNotPressed { vx: x },
+            (0xF, _, 0x0, 0x7) => Instruction::SetVxWithDt { vx: x },
+            (0xF, _, 0x1, 0x5) => Instruction::SetDtWithVx { vx: x },
+            (0xF, _, 0x1, 0x8) => Instruction::SetStWithVx { vx: x },
             _ => return Err(ParseError::UnknownOpcode(value)),
         };
 
@@ -463,6 +478,36 @@ mod tests {
         assert_eq!(
             Instruction::try_from(Opcode::from(0xE1A1)),
             Ok(Instruction::SkipIfVxKeyNotPressed { vx: 0x1 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_fx07_returns_set_vx_with_dt() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0xF107)),
+            Ok(Instruction::SetVxWithDt { vx: 0x1 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_fx15_returns_set_dt_with_vx() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0xF115)),
+            Ok(Instruction::SetDtWithVx { vx: 0x1 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_fx18_returns_set_st_with_vx() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0xF118)),
+            Ok(Instruction::SetStWithVx { vx: 0x1 })
         );
 
         Ok(())
