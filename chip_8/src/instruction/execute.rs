@@ -146,9 +146,12 @@ impl ExecuteInstruction for Chip8 {
                 memory.v[vx] <<= 1;
                 memory.v[Memory::INDEX_FLAG_REGISTER] = discarded;
             }
-            Instruction::JumpWithOffset { vx, value } => {
+            Instruction::JumpWithOffset { vx, address: value } => {
                 let register_offset = memory.v[if config.jump_reads_from_vx { vx } else { 0 }];
                 memory.pc = value + register_offset as u16;
+            }
+            Instruction::SetVxWithRandom { vx, value } => {
+                memory.v[vx] = rand::random::<u8>() & value;
             }
         };
 
@@ -660,7 +663,7 @@ mod tests {
 
         c.execute(&Instruction::JumpWithOffset {
             vx: 0x1,
-            value: 0x123,
+            address: 0x123,
         });
 
         assert_eq!(c.memory.pc, (100 + 0x123));
@@ -680,10 +683,25 @@ mod tests {
 
         c.execute(&Instruction::JumpWithOffset {
             vx: 0x1,
-            value: 0x123,
+            address: 0x123,
         });
 
         assert_eq!(c.memory.pc, (200 + 0x123));
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_set_vx_with_random() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.execute(&Instruction::SetVxWithRandom {
+            vx: 1,
+            value: 0b11001100,
+        })?;
+
+        // TODO(nenikitov): Figure out how to seed and test RNG
+        assert_eq!(c.memory.v[1] & 0b00110011, 0);
 
         Ok(())
     }

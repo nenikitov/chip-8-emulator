@@ -117,7 +117,12 @@ pub enum Instruction {
     /// **COMPATIBILITY:** Optionally use Vx instead of V0.
     JumpWithOffset {
         vx: usize,
-        value: u16,
+        address: u16,
+    },
+    /// Generate a random value AND with a given value and put into register Vx.
+    SetVxWithRandom {
+        vx: usize,
+        value: u8,
     },
 }
 
@@ -149,7 +154,11 @@ impl TryFrom<Opcode> for Instruction {
             (0x8, _, _, 0xE) => Instruction::Shift1LeftVxWithVy { vx: x, vy: y },
             (0x9, _, _, 0x0) => Instruction::SkipIfVxNotEqualsVy { vx: x, vy: y },
             (0xA, _, _, _) => Instruction::SetIWithValue { value: nnn },
-            (0xB, _, _, _) => Instruction::JumpWithOffset { vx: x, value: nnn },
+            (0xB, _, _, _) => Instruction::JumpWithOffset {
+                vx: x,
+                address: nnn,
+            },
+            (0xC, _, _, _) => Instruction::SetVxWithRandom { vx: x, value: nn },
             (0xD, _, _, _) => Instruction::DisplayDraw {
                 vx: x,
                 vy: y,
@@ -395,7 +404,20 @@ mod tests {
             Instruction::try_from(Opcode::from(0xB123)),
             Ok(Instruction::JumpWithOffset {
                 vx: 0x1,
-                value: 0x123
+                address: 0x123
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_cxnn_returns_set_vx_with_random() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0xC123)),
+            Ok(Instruction::SetVxWithRandom {
+                vx: 0x1,
+                value: 0x23
             })
         );
 
