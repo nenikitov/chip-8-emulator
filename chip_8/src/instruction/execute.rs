@@ -45,7 +45,7 @@ impl ExecuteInstruction for Chip8 {
             Instruction::DisplayDraw { vx, vy, height } => {
                 let x = memory.v[vx] % Memory::SIZE_DISPLAY_WIDTH as u8;
                 let y = memory.v[vy] % Memory::SIZE_DISPLAY_HEIGHT as u8;
-                memory.v[0xF] = 0;
+                memory.v[Memory::INDEX_FLAG_REGISTER] = 0;
                 'rows: for r in 0..(height) {
                     let row = memory.ram[(memory.i + r as u16) as usize];
                     'pixels: for p in 0..8 {
@@ -62,7 +62,7 @@ impl ExecuteInstruction for Chip8 {
                             }
                             memory.vram[y][x] ^= pixel;
                             if !memory.vram[y][x] {
-                                memory.v[0xF] = 1;
+                                memory.v[Memory::INDEX_FLAG_REGISTER] = 1;
                             }
                         }
                     }
@@ -114,17 +114,37 @@ impl ExecuteInstruction for Chip8 {
             Instruction::AddVxWithVy { vx, vy } => {
                 let (result, overflow) = memory.v[vx].overflowing_add(memory.v[vy]);
                 memory.v[vx] = result;
-                memory.v[0xF] = overflow.into();
+                memory.v[Memory::INDEX_FLAG_REGISTER] = overflow.into();
             }
             Instruction::SubtractVxWithVy { vx, vy } => {
                 let (result, underflow) = memory.v[vx].overflowing_sub(memory.v[vy]);
                 memory.v[vx] = result;
-                memory.v[0xF] = (!underflow).into();
+                memory.v[Memory::INDEX_FLAG_REGISTER] = (!underflow).into();
             }
             Instruction::SubtractVyWithVx { vx, vy } => {
                 let (result, underflow) = memory.v[vy].overflowing_sub(memory.v[vx]);
                 memory.v[vx] = result;
-                memory.v[0xF] = (!underflow).into();
+                memory.v[Memory::INDEX_FLAG_REGISTER] = (!underflow).into()
+            }
+            Instruction::Shift1RightVxWithVy { vx, vy } => {
+                if !config.shift_ignores_vy {
+                    memory.v[vx] = memory.v[vy];
+                }
+
+                let discarded = memory.v[vx] & 0b00000001;
+
+                memory.v[vx] >>= 1;
+                memory.v[Memory::INDEX_FLAG_REGISTER] = discarded;
+            }
+            Instruction::Shift1LeftVxWithVy { vx, vy } => {
+                if !config.shift_ignores_vy {
+                    memory.v[vx] = memory.v[vy];
+                }
+
+                let discarded = memory.v[vx] & 0b10000000 >> 7;
+
+                memory.v[vx] <<= 1;
+                memory.v[Memory::INDEX_FLAG_REGISTER] = discarded;
             }
         };
 
@@ -207,12 +227,12 @@ mod tests {
     fn execute_add_vx_value_overflow() -> Result<()> {
         let mut c = Chip8::default();
         c.memory.v[4] = 0xFF;
-        c.memory.v[0xF] = 0x30;
+        c.memory.v[Memory::INDEX_FLAG_REGISTER] = 0x30;
 
         c.execute(&Instruction::AddVxValue { vx: 4, value: 0x2 })?;
 
         assert_eq!(c.memory.v[4], 0x1);
-        assert_eq!(c.memory.v[0xF], 0x30);
+        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 0x30);
 
         Ok(())
     }
@@ -265,7 +285,7 @@ mod tests {
         assert_eq!(c.memory.vram[3][6], false);
         assert_eq!(c.memory.vram[3][7], false);
         assert_eq!(c.memory.vram[3][8], true);
-        assert_eq!(c.memory.v[0xF], 1);
+        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 1);
 
         Ok(())
     }
@@ -452,13 +472,13 @@ mod tests {
 
         c.memory.v[1] = 15;
         c.memory.v[2] = 17;
-        c.memory.v[0xF] = 3;
+        c.memory.v[Memory::INDEX_FLAG_REGISTER] = 3;
 
         c.execute(&Instruction::AddVxWithVy { vx: 1, vy: 2 })?;
 
         assert_eq!(c.memory.v[1], 32);
         assert_eq!(c.memory.v[2], 17);
-        assert_eq!(c.memory.v[0xF], 0);
+        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 0);
 
         Ok(())
     }
@@ -469,13 +489,13 @@ mod tests {
 
         c.memory.v[1] = 0xFF;
         c.memory.v[2] = 2;
-        c.memory.v[0xF] = 3;
+        c.memory.v[Memory::INDEX_FLAG_REGISTER] = 3;
 
         c.execute(&Instruction::AddVxWithVy { vx: 1, vy: 2 })?;
 
         assert_eq!(c.memory.v[1], 1);
         assert_eq!(c.memory.v[2], 2);
-        assert_eq!(c.memory.v[0xF], 1);
+        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 1);
 
         Ok(())
     }
@@ -486,13 +506,13 @@ mod tests {
 
         c.memory.v[1] = 17;
         c.memory.v[2] = 15;
-        c.memory.v[0xF] = 3;
+        c.memory.v[Memory::INDEX_FLAG_REGISTER] = 3;
 
         c.execute(&Instruction::SubtractVxWithVy { vx: 1, vy: 2 })?;
 
         assert_eq!(c.memory.v[1], 2);
         assert_eq!(c.memory.v[2], 15);
-        assert_eq!(c.memory.v[0xF], 1);
+        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 1);
 
         Ok(())
     }
@@ -503,13 +523,13 @@ mod tests {
 
         c.memory.v[1] = 15;
         c.memory.v[2] = 17;
-        c.memory.v[0xF] = 3;
+        c.memory.v[Memory::INDEX_FLAG_REGISTER] = 3;
 
         c.execute(&Instruction::SubtractVxWithVy { vx: 1, vy: 2 })?;
 
         assert_eq!(c.memory.v[1], 254);
         assert_eq!(c.memory.v[2], 17);
-        assert_eq!(c.memory.v[0xF], 0);
+        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 0);
 
         Ok(())
     }
@@ -520,13 +540,13 @@ mod tests {
 
         c.memory.v[1] = 15;
         c.memory.v[2] = 17;
-        c.memory.v[0xF] = 3;
+        c.memory.v[Memory::INDEX_FLAG_REGISTER] = 3;
 
         c.execute(&Instruction::SubtractVyWithVx { vx: 1, vy: 2 })?;
 
         assert_eq!(c.memory.v[1], 2);
         assert_eq!(c.memory.v[2], 17);
-        assert_eq!(c.memory.v[0xF], 1);
+        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 1);
 
         Ok(())
     }
@@ -537,13 +557,89 @@ mod tests {
 
         c.memory.v[1] = 17;
         c.memory.v[2] = 15;
-        c.memory.v[0xF] = 3;
+        c.memory.v[Memory::INDEX_FLAG_REGISTER] = 3;
 
         c.execute(&Instruction::SubtractVyWithVx { vx: 1, vy: 2 })?;
 
         assert_eq!(c.memory.v[1], 254);
         assert_eq!(c.memory.v[2], 15);
-        assert_eq!(c.memory.v[0xF], 0);
+        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_shift_1_right_vx_with_vy_ignore_vy() -> Result<()> {
+        let mut c = Chip8::new(Config {
+            shift_ignores_vy: true,
+            ..Config::default()
+        });
+
+        c.memory.v[1] = 0b10000001;
+        c.memory.v[2] = 0b00110000;
+
+        c.execute(&Instruction::Shift1RightVxWithVy { vx: 1, vy: 2 })?;
+
+        assert_eq!(c.memory.v[1], 0b01000000);
+        assert_eq!(c.memory.v[2], 0b00110000);
+        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_shift_1_right_vx_with_vy_use_vy() -> Result<()> {
+        let mut c = Chip8::new(Config {
+            shift_ignores_vy: false,
+            ..Config::default()
+        });
+
+        c.memory.v[1] = 0b10000001;
+        c.memory.v[2] = 0b00110000;
+
+        c.execute(&Instruction::Shift1RightVxWithVy { vx: 1, vy: 2 })?;
+
+        assert_eq!(c.memory.v[1], 0b00011000);
+        assert_eq!(c.memory.v[2], 0b00110000);
+        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_shift_1_left_vx_with_vy_ignore_vy() -> Result<()> {
+        let mut c = Chip8::new(Config {
+            shift_ignores_vy: true,
+            ..Config::default()
+        });
+
+        c.memory.v[1] = 0b10000001;
+        c.memory.v[2] = 0b00110000;
+
+        c.execute(&Instruction::Shift1LeftVxWithVy { vx: 1, vy: 2 })?;
+
+        assert_eq!(c.memory.v[1], 0b00000010);
+        assert_eq!(c.memory.v[2], 0b00110000);
+        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_shift_1_left_vx_with_vy_use_vy() -> Result<()> {
+        let mut c = Chip8::new(Config {
+            shift_ignores_vy: false,
+            ..Config::default()
+        });
+
+        c.memory.v[1] = 0b10000001;
+        c.memory.v[2] = 0b00110000;
+
+        c.execute(&Instruction::Shift1LeftVxWithVy { vx: 1, vy: 2 })?;
+
+        assert_eq!(c.memory.v[1], 0b01100000);
+        assert_eq!(c.memory.v[2], 0b00110000);
+        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 0);
 
         Ok(())
     }

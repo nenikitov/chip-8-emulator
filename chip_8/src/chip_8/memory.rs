@@ -137,6 +137,16 @@ pub struct Memory {
     pub v: [u8; Self::SIZE_REGISTERS],
 }
 
+impl Memory {
+    pub const SIZE_RAM: usize = 4 * 1024;
+    pub const SIZE_REGISTERS: usize = 16;
+    pub const SIZE_DISPLAY_WIDTH: usize = 64;
+    pub const SIZE_DISPLAY_HEIGHT: usize = 32;
+    pub const PROGRAM_START: u16 = 0x200;
+
+    pub const INDEX_FLAG_REGISTER: usize = Self::SIZE_REGISTERS - 1;
+}
+
 impl Default for Memory {
     fn default() -> Self {
         let mut s = Self {
@@ -152,14 +162,6 @@ impl Default for Memory {
         s.clear_memory();
         s
     }
-}
-
-impl Memory {
-    pub const SIZE_RAM: usize = 4 * 1024;
-    pub const SIZE_REGISTERS: usize = 16;
-    pub const SIZE_DISPLAY_WIDTH: usize = 64;
-    pub const SIZE_DISPLAY_HEIGHT: usize = 32;
-    pub const PROGRAM_START: u16 = 0x200;
 }
 
 impl Memory {

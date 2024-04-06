@@ -101,6 +101,18 @@ pub enum Instruction {
         vx: usize,
         vy: usize,
     },
+    /// Shift a value in a register Vx by 1 to the right and store the shifted out bit.
+    /// **COMPATIBILITY:** Optionally copies Vy to Vx before shift.
+    Shift1RightVxWithVy {
+        vx: usize,
+        vy: usize,
+    },
+    /// Shift a value in a register Vx by 1 to the left and store the shifted out bit.
+    /// **COMPATIBILITY:** Optionally copies Vy to Vx before shift.
+    Shift1LeftVxWithVy {
+        vx: usize,
+        vy: usize,
+    },
 }
 
 impl TryFrom<Opcode> for Instruction {
@@ -126,7 +138,9 @@ impl TryFrom<Opcode> for Instruction {
             (0x8, _, _, 0x3) => Instruction::XorVxWithVy { vx: x, vy: y },
             (0x8, _, _, 0x4) => Instruction::AddVxWithVy { vx: x, vy: y },
             (0x8, _, _, 0x5) => Instruction::SubtractVxWithVy { vx: x, vy: y },
+            (0x8, _, _, 0x6) => Instruction::Shift1RightVxWithVy { vx: x, vy: y },
             (0x8, _, _, 0x7) => Instruction::SubtractVyWithVx { vx: x, vy: y },
+            (0x8, _, _, 0xE) => Instruction::Shift1LeftVxWithVy { vx: x, vy: y },
             (0x9, _, _, 0x0) => Instruction::SkipIfVxNotEqualsVy { vx: x, vy: y },
             (0xA, _, _, _) => Instruction::SetIWithValue { value: nnn },
             (0xD, _, _, _) => Instruction::DisplayDraw {
@@ -319,10 +333,30 @@ mod tests {
     }
 
     #[test]
+    fn from_opcode_8xy6_returns_shift_1_right_vx_with_vy() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0x8126)),
+            Ok(Instruction::Shift1RightVxWithVy { vx: 0x1, vy: 0x2 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn from_opcode_8xy7_returns_subtract_vy_with_vx() -> Result<()> {
         assert_eq!(
             Instruction::try_from(Opcode::from(0x8127)),
             Ok(Instruction::SubtractVyWithVx { vx: 0x1, vy: 0x2 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_8xye_returns_shift_1_left_vx_with_vy() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0x812E)),
+            Ok(Instruction::Shift1LeftVxWithVy { vx: 0x1, vy: 0x2 })
         );
 
         Ok(())
