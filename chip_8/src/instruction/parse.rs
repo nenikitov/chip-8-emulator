@@ -113,6 +113,12 @@ pub enum Instruction {
         vx: usize,
         vy: usize,
     },
+    /// Jump to the offset + what is stored in V0.
+    /// **COMPATIBILITY:** Optionally use Vx instead of V0.
+    JumpWithOffset {
+        vx: usize,
+        value: u16,
+    },
 }
 
 impl TryFrom<Opcode> for Instruction {
@@ -143,6 +149,7 @@ impl TryFrom<Opcode> for Instruction {
             (0x8, _, _, 0xE) => Instruction::Shift1LeftVxWithVy { vx: x, vy: y },
             (0x9, _, _, 0x0) => Instruction::SkipIfVxNotEqualsVy { vx: x, vy: y },
             (0xA, _, _, _) => Instruction::SetIWithValue { value: nnn },
+            (0xB, _, _, _) => Instruction::JumpWithOffset { vx: x, value: nnn },
             (0xD, _, _, _) => Instruction::DisplayDraw {
                 vx: x,
                 vy: y,
@@ -377,6 +384,19 @@ mod tests {
         assert_eq!(
             Instruction::try_from(Opcode::from(0xA123)),
             Ok(Instruction::SetIWithValue { value: 0x123 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_bnnn_returns_jump_with_offset() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0xB123)),
+            Ok(Instruction::JumpWithOffset {
+                vx: 0x1,
+                value: 0x123
+            })
         );
 
         Ok(())

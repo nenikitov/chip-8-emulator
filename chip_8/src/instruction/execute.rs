@@ -146,6 +146,10 @@ impl ExecuteInstruction for Chip8 {
                 memory.v[vx] <<= 1;
                 memory.v[Memory::INDEX_FLAG_REGISTER] = discarded;
             }
+            Instruction::JumpWithOffset { vx, value } => {
+                let register_offset = memory.v[if config.jump_reads_from_vx { vx } else { 0 }];
+                memory.pc = value + register_offset as u16;
+            }
         };
 
         Ok(())
@@ -640,6 +644,46 @@ mod tests {
         assert_eq!(c.memory.v[1], 0b01100000);
         assert_eq!(c.memory.v[2], 0b00110000);
         assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_jump_with_offset_use_v0() -> Result<()> {
+        let mut c = Chip8::new(Config {
+            jump_reads_from_vx: false,
+            ..Config::default()
+        });
+
+        c.memory.v[0] = 100;
+        c.memory.v[1] = 200;
+
+        c.execute(&Instruction::JumpWithOffset {
+            vx: 0x1,
+            value: 0x123,
+        });
+
+        assert_eq!(c.memory.pc, (100 + 0x123));
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_jump_with_offset_use_vx() -> Result<()> {
+        let mut c = Chip8::new(Config {
+            jump_reads_from_vx: true,
+            ..Config::default()
+        });
+
+        c.memory.v[0] = 100;
+        c.memory.v[1] = 200;
+
+        c.execute(&Instruction::JumpWithOffset {
+            vx: 0x1,
+            value: 0x123,
+        });
+
+        assert_eq!(c.memory.pc, (200 + 0x123));
 
         Ok(())
     }
