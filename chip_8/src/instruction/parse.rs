@@ -213,11 +213,22 @@ mod tests {
     use super::*;
 
     use eyre::Result;
+    use rstest::*;
     use similar_asserts::assert_eq;
 
-    // TODO(nenikitov): Use `rstest` here.
+    macro_rules! opcode {
+        { i: $i:expr, x: $x:expr, y: $y:expr, n: $n:expr } => (
+            ($i << 12) as u16 + ($x << 8) as u16 + ($y << 4) as u16 + ($n as u16)
+        );
+        { i: $i:expr, x: $x:expr, nn: $nn: expr } => (
+            ($i << 12) as u16 + ($x << 8) as u16 + ($nn as u16)
+        );
+        { i: $i:expr, nnn: $nnn: expr } => (
+            ($i << 12) as u16 + ($nnn as u16)
+        );
+    }
 
-    #[test]
+    #[rstest]
     fn from_opcode_00e0_returns_display_clear() -> Result<()> {
         assert_eq!(
             Instruction::try_from(Opcode::from(0x00E0)),
@@ -227,7 +238,7 @@ mod tests {
         Ok(())
     }
 
-    #[test]
+    #[rstest]
     fn from_opcode_00ee_returns_subroutine_return() -> Result<()> {
         assert_eq!(
             Instruction::try_from(Opcode::from(0x00EE)),
@@ -237,313 +248,355 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_0nnn_returns_system() -> Result<()> {
+    #[rstest]
+    fn from_opcode_0nnn_returns_system(#[values(0x123, 0x234)] address: u16) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x0123)),
-            Ok(Instruction::System { address: 0x123 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x0, nnn: address })),
+            Ok(Instruction::System { address })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_1nnn_returns_jump() -> Result<()> {
+    #[rstest]
+    fn from_opcode_1nnn_returns_jump(#[values(0x123, 0x234)] address: u16) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x1123)),
-            Ok(Instruction::Jump { address: 0x123 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x1, nnn: address })),
+            Ok(Instruction::Jump { address })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_2nnn_returns_subroutine_call() -> Result<()> {
+    #[rstest]
+    fn from_opcode_2nnn_returns_subroutine_call(
+        #[values(0x123, 0x234)] address: u16,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x2123)),
-            Ok(Instruction::SubroutineCall { address: 0x123 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x2, nnn: address })),
+            Ok(Instruction::SubroutineCall { address })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_3xnn_returns_skip_if_vx_equals_value() -> Result<()> {
+    #[rstest]
+    fn from_opcode_3xnn_returns_skip_if_vx_equals_value(
+        #[values(1, 2)] vx: usize,
+        #[values(0x12, 0x23)] value: u8,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x3123)),
-            Ok(Instruction::SkipIfVxEqualsValue {
-                vx: 0x1,
-                value: 0x23
-            })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x3, x: vx, nn: value })),
+            Ok(Instruction::SkipIfVxEqualsValue { vx, value })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_4xnn_returns_skip_if_vx_not_equals_value() -> Result<()> {
+    #[rstest]
+    fn from_opcode_4xnn_returns_skip_if_vx_not_equals_value(
+        #[values(1, 2)] vx: usize,
+        #[values(0x12, 0x23)] value: u8,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x4234)),
-            Ok(Instruction::SkipIfVxNotEqualsValue {
-                vx: 0x2,
-                value: 0x34
-            })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x4, x: vx, nn: value })),
+            Ok(Instruction::SkipIfVxNotEqualsValue { vx, value })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_5xy0_returns_skip_if_vx_equals_vy() -> Result<()> {
+    #[rstest]
+    fn from_opcode_5xy0_returns_skip_if_vx_equals_vy(
+        #[values(1, 2)] vx: usize,
+        #[values(2, 3)] vy: usize,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x5120)),
-            Ok(Instruction::SkipIfVxEqualsVy { vx: 0x1, vy: 0x2 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x5, x: vx, y: vy, n: 0x0 })),
+            Ok(Instruction::SkipIfVxEqualsVy { vx, vy })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_6xnn_returns_set_vx_with_value() -> Result<()> {
+    #[rstest]
+    fn from_opcode_6xnn_returns_set_vx_with_value(
+        #[values(1, 2)] vx: usize,
+        #[values(0x12, 0x23)] value: u8,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x6123)),
-            Ok(Instruction::SetVxWithValue {
-                vx: 0x1,
-                value: 0x23
-            })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x6, x: vx, nn: value })),
+            Ok(Instruction::SetVxWithValue { vx, value })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_7xnn_returns_add_vx_value() -> Result<()> {
+    #[rstest]
+    fn from_opcode_7xnn_returns_add_vx_value(
+        #[values(1, 2)] vx: usize,
+        #[values(0x12, 0x23)] value: u8,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x7123)),
-            Ok(Instruction::AddVxValue {
-                vx: 0x1,
-                value: 0x23
-            })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x7, x: vx, nn: value })),
+            Ok(Instruction::AddVxValue { vx, value })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_8xy0_returns_set_vx_with_vy() -> Result<()> {
+    #[rstest]
+    fn from_opcode_8xy0_returns_set_vx_with_vy(
+        #[values(1, 2)] vx: usize,
+        #[values(2, 3)] vy: usize,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x8120)),
-            Ok(Instruction::SetVxWithVy { vx: 0x1, vy: 0x2 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x0 })),
+            Ok(Instruction::SetVxWithVy { vx, vy })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_8xy1_returns_or_vx_with_vy() -> Result<()> {
+    #[rstest]
+    fn from_opcode_8xy1_returns_or_vx_with_vy(
+        #[values(1, 2)] vx: usize,
+        #[values(2, 3)] vy: usize,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x8121)),
-            Ok(Instruction::OrVxWithVy { vx: 0x1, vy: 0x2 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x1 })),
+            Ok(Instruction::OrVxWithVy { vx, vy })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_8xy2_returns_and_vx_with_vy() -> Result<()> {
+    #[rstest]
+    fn from_opcode_8xy2_returns_and_vx_with_vy(
+        #[values(1, 2)] vx: usize,
+        #[values(2, 3)] vy: usize,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x8122)),
-            Ok(Instruction::AndVxWithVy { vx: 0x1, vy: 0x2 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x2 })),
+            Ok(Instruction::AndVxWithVy { vx, vy })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_8xy3_returns_xor_vx_with_vy() -> Result<()> {
+    #[rstest]
+    fn from_opcode_8xy3_returns_xor_vx_with_vy(
+        #[values(1, 2)] vx: usize,
+        #[values(2, 3)] vy: usize,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x8123)),
-            Ok(Instruction::XorVxWithVy { vx: 0x1, vy: 0x2 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x3 })),
+            Ok(Instruction::XorVxWithVy { vx, vy })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_8xy4_returns_xor_vx_with_vy() -> Result<()> {
+    #[rstest]
+    fn from_opcode_8xy4_returns_xor_vx_with_vy(
+        #[values(1, 2)] vx: usize,
+        #[values(2, 3)] vy: usize,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x8124)),
-            Ok(Instruction::AddVxWithVy { vx: 0x1, vy: 0x2 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x4 })),
+            Ok(Instruction::AddVxWithVy { vx, vy })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_8xy5_returns_subtract_vx_with_vy() -> Result<()> {
+    #[rstest]
+    fn from_opcode_8xy5_returns_subtract_vx_with_vy(
+        #[values(1, 2)] vx: usize,
+        #[values(2, 3)] vy: usize,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x8125)),
-            Ok(Instruction::SubtractVxWithVy { vx: 0x1, vy: 0x2 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x5 })),
+            Ok(Instruction::SubtractVxWithVy { vx, vy })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_8xy6_returns_shift_1_right_vx_with_vy() -> Result<()> {
+    #[rstest]
+    fn from_opcode_8xy6_returns_shift_1_right_vx_with_vy(
+        #[values(1, 2)] vx: usize,
+        #[values(2, 3)] vy: usize,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x8126)),
-            Ok(Instruction::Shift1RightVxWithVy { vx: 0x1, vy: 0x2 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x6 })),
+            Ok(Instruction::Shift1RightVxWithVy { vx, vy })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_8xy7_returns_subtract_vy_with_vx() -> Result<()> {
+    #[rstest]
+    fn from_opcode_8xy7_returns_subtract_vy_with_vx(
+        #[values(1, 2)] vx: usize,
+        #[values(2, 3)] vy: usize,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x8127)),
-            Ok(Instruction::SubtractVyWithVx { vx: 0x1, vy: 0x2 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x7 })),
+            Ok(Instruction::SubtractVyWithVx { vx, vy })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_8xye_returns_shift_1_left_vx_with_vy() -> Result<()> {
+    #[rstest]
+    fn from_opcode_8xye_returns_shift_1_left_vx_with_vy(
+        #[values(1, 2)] vx: usize,
+        #[values(2, 3)] vy: usize,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x812E)),
-            Ok(Instruction::Shift1LeftVxWithVy { vx: 0x1, vy: 0x2 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0xE })),
+            Ok(Instruction::Shift1LeftVxWithVy { vx, vy })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_9xy0_returns_skip_if_vx_not_equals_vy() -> Result<()> {
+    #[rstest]
+    fn from_opcode_9xy0_returns_skip_if_vx_not_equals_vy(
+        #[values(1, 2)] vx: usize,
+        #[values(2, 3)] vy: usize,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0x9230)),
-            Ok(Instruction::SkipIfVxNotEqualsVy { vx: 0x2, vy: 0x3 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0x9, x: vx, y: vy, n: 0x0 })),
+            Ok(Instruction::SkipIfVxNotEqualsVy { vx, vy })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_axnn_returns_set_i_with_value() -> Result<()> {
+    #[rstest]
+    fn from_opcode_annn_returns_set_i_with_value(#[values(0x123, 0x234)] value: u16) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0xA123)),
-            Ok(Instruction::SetIWithValue { value: 0x123 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0xA, nnn: value })),
+            Ok(Instruction::SetIWithValue { value })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_bnnn_returns_jump_with_offset() -> Result<()> {
+    #[rstest]
+    fn from_opcode_bnnn_returns_jump_with_offset(
+        #[values(1, 2)] vx: usize,
+        #[values(0x12, 0x23)] value: u8,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0xB123)),
+            Instruction::try_from(Opcode::from(opcode! { i: 0xB, x: vx, nn: value })),
             Ok(Instruction::JumpWithOffset {
-                vx: 0x1,
-                address: 0x123
+                vx,
+                address: (vx << 8) as u16 + value as u16
             })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_cxnn_returns_set_vx_with_random() -> Result<()> {
+    #[rstest]
+    fn from_opcode_cxnn_returns_set_vx_with_random(
+        #[values(1, 2)] vx: usize,
+        #[values(0x12, 0x23)] value: u8,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0xC123)),
-            Ok(Instruction::SetVxWithRandom {
-                vx: 0x1,
-                value: 0x23
-            })
+            Instruction::try_from(Opcode::from(opcode! { i: 0xC, x: vx, nn: value })),
+            Ok(Instruction::SetVxWithRandom { vx, value })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_dxyn_returns_display_draw() -> Result<()> {
+    #[rstest]
+    fn from_opcode_dxyn_returns_display_draw(
+        #[values(1, 2)] vx: usize,
+        #[values(2, 3)] vy: usize,
+        #[values(4, 5)] height: u8,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0xD123)),
-            Ok(Instruction::DisplayDraw {
-                vx: 0x1,
-                vy: 0x2,
-                height: 0x3
-            })
+            Instruction::try_from(Opcode::from(opcode! { i: 0xD, x: vx, y: vy, n: height })),
+            Ok(Instruction::DisplayDraw { vx, vy, height })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_ex9e_returns_skip_if_vx_key_pressed() -> Result<()> {
+    #[rstest]
+    fn from_opcode_ex9e_returns_skip_if_vx_key_pressed(#[values(1, 2)] vx: usize) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0xE19E)),
-            Ok(Instruction::SkipIfVxKeyPressed { vx: 0x1 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0xE, x: vx, nn: 0x9E })),
+            Ok(Instruction::SkipIfVxKeyPressed { vx })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_exa1_returns_skip_if_vx_key_not_pressed() -> Result<()> {
+    #[rstest]
+    fn from_opcode_exa1_returns_skip_if_vx_key_not_pressed(
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0xE1A1)),
-            Ok(Instruction::SkipIfVxKeyNotPressed { vx: 0x1 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0xE, x: vx, nn: 0xA1 })),
+            Ok(Instruction::SkipIfVxKeyNotPressed { vx })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_fx07_returns_set_vx_with_dt() -> Result<()> {
+    #[rstest]
+    fn from_opcode_fx07_returns_set_vx_with_dt(#[values(1, 2)] vx: usize) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0xF107)),
-            Ok(Instruction::SetVxWithDt { vx: 0x1 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0xF, x: vx, nn: 0x07 })),
+            Ok(Instruction::SetVxWithDt { vx })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_fx0a_returns_set_vx_with_next_pressed_key_blocking() -> Result<()> {
+    #[rstest]
+    fn from_opcode_fx0a_returns_set_vx_with_next_pressed_key_blocking(
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0xF10A)),
-            Ok(Instruction::SetVxWithNextPressedKeyBlocking { vx: 0x1 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0xF, x: vx, nn: 0x0A })),
+            Ok(Instruction::SetVxWithNextPressedKeyBlocking { vx })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_fx15_returns_set_dt_with_vx() -> Result<()> {
+    #[rstest]
+    fn from_opcode_fx15_returns_set_dt_with_vx(#[values(1, 2)] vx: usize) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0xF115)),
-            Ok(Instruction::SetDtWithVx { vx: 0x1 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0xF, x: vx, nn: 0x15 })),
+            Ok(Instruction::SetDtWithVx { vx })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_fx18_returns_set_st_with_vx() -> Result<()> {
+    #[rstest]
+    fn from_opcode_fx18_returns_set_st_with_vx(#[values(1, 2)] vx: usize) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0xF118)),
-            Ok(Instruction::SetStWithVx { vx: 0x1 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0xF, x: vx, nn: 0x18 })),
+            Ok(Instruction::SetStWithVx { vx })
         );
 
         Ok(())
     }
 
-    #[test]
-    fn from_opcode_fx1e_returns_add_i_with_vx() -> Result<()> {
+    #[rstest]
+    fn from_opcode_fx1e_returns_add_i_with_vx(#[values(1, 2)] vx: usize) -> Result<()> {
         assert_eq!(
-            Instruction::try_from(Opcode::from(0xF11E)),
-            Ok(Instruction::AddIWithVx { vx: 0x1 })
+            Instruction::try_from(Opcode::from(opcode! { i: 0xF, x: vx, nn: 0x1E })),
+            Ok(Instruction::AddIWithVx { vx })
         );
 
         Ok(())
