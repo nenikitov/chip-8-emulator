@@ -1,4 +1,5 @@
 mod app;
+mod debug_screen;
 mod pixel_display;
 mod size_error;
 mod stats;
