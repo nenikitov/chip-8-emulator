@@ -24,14 +24,14 @@ impl From<ExecuteError> for InstructionError {
     }
 }
 
-#[derive(Default, Debug, PartialEq, Eq)]
+#[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
 pub(crate) enum State {
     #[default]
     Ready,
     WaitingForKey(u8),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Chip8 {
     pub(crate) config: Config,
     pub(crate) memory: Memory,
@@ -117,17 +117,17 @@ mod tests {
         ]);
 
         assert_eq!(c.memory.v[1], 0);
-        assert_eq!(c.memory.pc, Memory::PROGRAM_START);
+        assert_eq!(c.memory.pc, Memory::INDEX_PROGRAM_START);
 
         c.advance_instruction()?;
 
         assert_eq!(c.memory.v[1], 2);
-        assert_eq!(c.memory.pc, Memory::PROGRAM_START + 2);
+        assert_eq!(c.memory.pc, Memory::INDEX_PROGRAM_START + 2);
 
         c.advance_instruction()?;
 
         assert_eq!(c.memory.v[1], 5);
-        assert_eq!(c.memory.pc, Memory::PROGRAM_START + 4);
+        assert_eq!(c.memory.pc, Memory::INDEX_PROGRAM_START + 4);
 
         Ok(())
     }
@@ -144,12 +144,12 @@ mod tests {
         ]);
 
         assert_eq!(c.memory.v[1], 0);
-        assert_eq!(c.memory.pc, Memory::PROGRAM_START);
+        assert_eq!(c.memory.pc, Memory::INDEX_PROGRAM_START);
 
         c.advance_instruction()?;
 
         assert_eq!(c.memory.v[1], 0);
-        assert_eq!(c.memory.pc, Memory::PROGRAM_START);
+        assert_eq!(c.memory.pc, Memory::INDEX_PROGRAM_START);
 
         Ok(())
     }

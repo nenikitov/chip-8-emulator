@@ -141,7 +141,7 @@ impl ExecuteInstruction for Chip8 {
                     memory.v[vx] = memory.v[vy];
                 }
 
-                let discarded = memory.v[vx] & 0b10000000 >> 7;
+                let discarded = (memory.v[vx] & 0b10000000) >> 7;
 
                 memory.v[vx] <<= 1;
                 memory.v[Memory::INDEX_FLAG_REGISTER] = discarded;
@@ -191,680 +191,739 @@ mod tests {
     use super::*;
 
     use eyre::Result;
+    use rstest::*;
+    use similar_asserts::assert_eq;
 
-    #[test]
-    fn execute_system_unsupported() -> Result<()> {
-        let mut c = Chip8::default();
+    #[fixture]
+    fn target(#[default(Config::default())] config: Config) -> Chip8 {
+        let mut chip = Chip8::new(config);
+
+        chip.memory.ram[Memory::INDEX_PROGRAM_START as usize..][..4]
+            .copy_from_slice(&[0x61, 0x02, 0x71, 0x03]);
+        chip.memory.vram[0].iter_mut().for_each(|e| *e = true);
+        chip.memory.stack.push(Memory::INDEX_PROGRAM_START);
+        chip.memory.dt = 60;
+        chip.memory.st = 10;
+        chip.memory.i = 100;
+        chip.memory.v = [0, 1, 2, 3, 4, 5, 31, 59, 0, 1, 2, 3, 4, 5, 30, 60];
+        chip.memory.keys = [
+            true, false, true, false, true, false, true,
+            false, // First 8 are pressed and unpressed
+            false, false, false, false, false, false, false, false, // Last 8 are not pressed
+        ];
+
+        chip
+    }
+
+    #[fixture]
+    fn result(target: Chip8) -> Chip8 {
+        target.clone()
+    }
+
+    #[rstest]
+    fn execute_system_unsupported(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0x123, 0x234)] address: u16,
+    ) -> Result<()> {
+        let instruction = Instruction::System { address };
+
         assert_eq!(
-            c.execute(&Instruction::System { address: 0x123 }),
-            Err(ExecuteError::UnsupportedInstruction(Instruction::System {
-                address: 0x123
-            }))
+            target.execute(&instruction),
+            Err(ExecuteError::UnsupportedInstruction(instruction))
         );
-
         Ok(())
     }
 
-    #[test]
-    fn execute_display_clear() -> Result<()> {
-        let mut c = Chip8::default();
-        c.memory
-            .vram
-            .iter_mut()
-            .for_each(|e| e.iter_mut().for_each(|e| *e = true));
+    #[rstest]
+    fn execute_display_clear(mut target: Chip8, mut result: Chip8) -> Result<()> {
+        target.execute(&Instruction::DisplayClear)?;
 
-        c.execute(&Instruction::DisplayClear)?;
+        result.memory.vram = [[false; Memory::SIZE_DISPLAY_WIDTH]; Memory::SIZE_DISPLAY_HEIGHT];
 
-        assert_eq!(
-            c.memory.vram,
-            [[false; Memory::SIZE_DISPLAY_WIDTH]; Memory::SIZE_DISPLAY_HEIGHT]
-        );
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn execute_jump() -> Result<()> {
-        let mut c = Chip8::default();
+    #[rstest]
+    fn execute_jump(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0x123, 0x234)] address: u16,
+    ) -> Result<()> {
+        target.execute(&Instruction::Jump { address })?;
 
-        c.execute(&Instruction::Jump { address: 0x123 })?;
+        result.memory.pc = address;
 
-        assert_eq!(c.memory.pc, 0x123);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn execute_set_vx_with_value() -> Result<()> {
-        let mut c = Chip8::default();
+    #[rstest]
+    fn execute_set_vx_with_value(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(0x12, 0x23)] value: u8,
+    ) -> Result<()> {
+        target.execute(&Instruction::SetVxWithValue { vx, value })?;
 
-        c.execute(&Instruction::SetVxWithValue { vx: 5, value: 0x32 })?;
+        result.memory.v[vx] = value;
 
-        assert_eq!(c.memory.v[5], 0x32);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn execute_add_vx_value() -> Result<()> {
-        let mut c = Chip8::default();
-        c.memory.v[4] = 1;
+    #[rstest]
+    fn execute_add_vx_value(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(0x12, 0x23)] value: u8,
+    ) -> Result<()> {
+        target.execute(&Instruction::AddVxValue { vx, value })?;
 
-        c.execute(&Instruction::AddVxValue { vx: 4, value: 0x33 })?;
+        result.memory.v[vx] += value;
 
-        assert_eq!(c.memory.v[4], 0x34);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn execute_add_vx_value_overflow() -> Result<()> {
-        let mut c = Chip8::default();
-        c.memory.v[4] = 0xFF;
-        c.memory.v[Memory::INDEX_FLAG_REGISTER] = 0x30;
+    #[rstest]
+    fn execute_add_vx_value_overflow(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::AddVxValue { vx, value: 255 })?;
 
-        c.execute(&Instruction::AddVxValue { vx: 4, value: 0x2 })?;
+        result.memory.v[vx] -= 1;
 
-        assert_eq!(c.memory.v[4], 0x1);
-        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 0x30);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn execute_set_i_with_value() -> Result<()> {
-        let mut c = Chip8::default();
+    #[rstest]
+    fn execute_set_i_with_value(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0x123, 0x234)] value: u16,
+    ) -> Result<()> {
+        target.execute(&Instruction::SetIWithValue { value })?;
 
-        c.execute(&Instruction::SetIWithValue { value: 0x123 })?;
+        result.memory.i = value;
 
-        assert_eq!(c.memory.i, 0x123);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn execute_display_draw() -> Result<()> {
-        let mut c = Chip8::default();
-        c.memory.i = 0;
-        c.memory.ram[0] = 0b10111111;
-        c.memory.ram[1] = 0b01001001;
-        c.memory.v[4] = 1;
-        c.memory.v[6] = 2;
-        c.memory.vram[2][1] = true;
-        c.memory.vram[2][2] = true;
-        c.memory.vram[2][3] = true;
-        c.memory.vram[3][1] = true;
-        c.memory.vram[3][2] = true;
-        c.memory.vram[3][3] = true;
+    #[rstest]
+    fn execute_display_draw(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(2, 3, 7)] vx: usize,
+        #[values(3, 3, 6)] vy: usize,
+    ) -> Result<()> {
+        let x = target.memory.v[vx] as usize;
+        let y = target.memory.v[vy] as usize;
+        let width = usize::min(8, Memory::SIZE_DISPLAY_WIDTH - x);
 
-        c.execute(&Instruction::DisplayDraw {
-            vx: 4,
-            vy: 6,
-            height: 2,
+        target.memory.ram[target.memory.i as usize + 0] = 0b10111111;
+        target.memory.ram[target.memory.i as usize + 1] = 0b01001001;
+
+        target.execute(&Instruction::DisplayDraw { vx, vy, height: 2 })?;
+
+        result.memory.ram[result.memory.i as usize + 0] = 0b10111111;
+        result.memory.ram[result.memory.i as usize + 1] = 0b01001001;
+        result.memory.vram[y][x..][..width]
+            .copy_from_slice(&[true, false, true, true, true, true, true, true][..width]);
+        if y + 1 < Memory::SIZE_DISPLAY_HEIGHT {
+            result.memory.vram[y + 1][x..][..width]
+                .copy_from_slice(&[false, true, false, false, true, false, false, true][..width]);
+        }
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 0;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_display_draw_overdraw(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(2, 3, 7)] vx: usize,
+        #[values(3, 3, 6)] vy: usize,
+    ) -> Result<()> {
+        let x = target.memory.v[vx] as usize;
+        let y = target.memory.v[vy] as usize;
+        let width = usize::min(8, Memory::SIZE_DISPLAY_WIDTH - x);
+
+        target.memory.ram[target.memory.i as usize + 0] = 0b10111111;
+        target.memory.ram[target.memory.i as usize + 1] = 0b01001001;
+        target.memory.vram[y][x] = true;
+
+        target.execute(&Instruction::DisplayDraw { vx, vy, height: 2 })?;
+
+        result.memory.ram[result.memory.i as usize + 0] = 0b10111111;
+        result.memory.ram[result.memory.i as usize + 1] = 0b01001001;
+        result.memory.vram[y][x..][..width]
+            .copy_from_slice(&[false, false, true, true, true, true, true, true][..width]);
+        if y + 1 < Memory::SIZE_DISPLAY_HEIGHT {
+            result.memory.vram[y + 1][x..][..width]
+                .copy_from_slice(&[false, true, false, false, true, false, false, true][..width]);
+        }
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 1;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_subroutine_call_once(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0x123, 0x234)] address: u16,
+    ) -> Result<()> {
+        target.execute(&Instruction::SubroutineCall { address })?;
+
+        result.memory.stack.push(Memory::INDEX_PROGRAM_START);
+        result.memory.pc = address;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_subroutine_call_twice(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0x123, 0x234)] address_1: u16,
+        #[values(0x123, 0x234)] address_2: u16,
+    ) -> Result<()> {
+        target.execute(&Instruction::SubroutineCall { address: address_1 })?;
+        target.execute(&Instruction::SubroutineCall { address: address_2 })?;
+
+        result
+            .memory
+            .stack
+            .append(&mut vec![Memory::INDEX_PROGRAM_START, address_1]);
+        result.memory.pc = address_2;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_subroutine_return_once(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0x123, 0x234)] address_1: u16,
+        #[values(0x123, 0x234)] address_2: u16,
+    ) -> Result<()> {
+        target.execute(&Instruction::SubroutineCall { address: address_1 })?;
+        target.execute(&Instruction::SubroutineCall { address: address_2 })?;
+        target.execute(&Instruction::SubroutineReturn)?;
+
+        result.memory.stack.push(Memory::INDEX_PROGRAM_START);
+        result.memory.pc = address_1;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_subroutine_return_twice(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0x123, 0x234)] address_1: u16,
+        #[values(0x123, 0x234)] address_2: u16,
+    ) -> Result<()> {
+        target.execute(&Instruction::SubroutineCall { address: address_1 })?;
+        target.execute(&Instruction::SubroutineCall { address: address_2 })?;
+        target.execute(&Instruction::SubroutineReturn)?;
+        target.execute(&Instruction::SubroutineReturn)?;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_skip_if_vx_equals_value_equals(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SkipIfVxEqualsValue {
+            vx,
+            value: target.memory.v[vx],
         })?;
 
-        assert_eq!(c.memory.vram[2][1], false);
-        assert_eq!(c.memory.vram[2][2], true);
-        assert_eq!(c.memory.vram[2][3], false);
-        assert_eq!(c.memory.vram[2][4], true);
-        assert_eq!(c.memory.vram[2][5], true);
-        assert_eq!(c.memory.vram[2][6], true);
-        assert_eq!(c.memory.vram[2][7], true);
-        assert_eq!(c.memory.vram[2][8], true);
-        assert_eq!(c.memory.vram[3][1], true);
-        assert_eq!(c.memory.vram[3][2], false);
-        assert_eq!(c.memory.vram[3][3], true);
-        assert_eq!(c.memory.vram[3][4], false);
-        assert_eq!(c.memory.vram[3][5], true);
-        assert_eq!(c.memory.vram[3][6], false);
-        assert_eq!(c.memory.vram[3][7], false);
-        assert_eq!(c.memory.vram[3][8], true);
-        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 1);
+        result.memory.increment_pc();
 
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn execute_subroutine_call() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.execute(&Instruction::Jump { address: 0x123 })?;
-
-        c.execute(&Instruction::SubroutineCall { address: 0x234 })?;
-        assert_eq!(c.memory.pc, 0x234);
-        assert_eq!(c.memory.stack, vec![0x123]);
-
-        c.execute(&Instruction::SubroutineCall { address: 0x345 })?;
-        assert_eq!(c.memory.pc, 0x345);
-        assert_eq!(c.memory.stack, vec![0x123, 0x234]);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_subroutine_return() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.execute(&Instruction::Jump { address: 0x123 })?;
-        c.execute(&Instruction::SubroutineCall { address: 0x234 })?;
-        c.execute(&Instruction::SubroutineCall { address: 0x345 })?;
-
-        c.execute(&Instruction::SubroutineReturn)?;
-        assert_eq!(c.memory.pc, 0x234);
-        assert_eq!(c.memory.stack, vec![0x123]);
-
-        c.execute(&Instruction::SubroutineReturn)?;
-        assert_eq!(c.memory.pc, 0x123);
-        assert_eq!(c.memory.stack, vec![]);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_skip_if_vx_equals_value_equals() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.pc = 14;
-        c.memory.v[0x2] = 0x34;
-
-        c.execute(&Instruction::SkipIfVxEqualsValue {
-            vx: 0x2,
-            value: 0x34,
-        })?;
-        assert_eq!(c.memory.pc, 16);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_skip_if_vx_equals_value_not_equals() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.pc = 14;
-        c.memory.v[0x2] = 0x34;
-
-        c.execute(&Instruction::SkipIfVxEqualsValue {
-            vx: 0x2,
-            value: 0x0,
-        })?;
-        assert_eq!(c.memory.pc, 14);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_skip_if_vx_not_equals_value_not_equals() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.pc = 14;
-        c.memory.v[0x2] = 0x34;
-
-        c.execute(&Instruction::SkipIfVxNotEqualsValue {
-            vx: 0x2,
-            value: 0x0,
-        })?;
-        assert_eq!(c.memory.pc, 16);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_skip_if_vx_not_equals_value_equals() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.pc = 14;
-        c.memory.v[0x2] = 0x34;
-
-        c.execute(&Instruction::SkipIfVxNotEqualsValue {
-            vx: 0x2,
-            value: 0x34,
-        })?;
-        assert_eq!(c.memory.pc, 14);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_skip_if_vx_equals_vy_equals() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.pc = 14;
-        c.memory.v[0x2] = 0x34;
-        c.memory.v[0x3] = 0x34;
-
-        c.execute(&Instruction::SkipIfVxEqualsVy { vx: 0x2, vy: 0x3 })?;
-        assert_eq!(c.memory.pc, 16);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_skip_if_vx_equals_vy_not_equals() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.pc = 14;
-        c.memory.v[0x2] = 0x17;
-        c.memory.v[0x3] = 0x34;
-
-        c.execute(&Instruction::SkipIfVxEqualsVy { vx: 0x2, vy: 0x3 })?;
-        assert_eq!(c.memory.pc, 14);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_skip_if_vx_not_equals_vy_not_equals() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.pc = 14;
-        c.memory.v[0x2] = 0x17;
-        c.memory.v[0x3] = 0x34;
-
-        c.execute(&Instruction::SkipIfVxNotEqualsVy { vx: 0x2, vy: 0x3 })?;
-        assert_eq!(c.memory.pc, 16);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_skip_if_vx_not_equals_vy_equals() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.pc = 14;
-        c.memory.v[0x2] = 0x34;
-        c.memory.v[0x3] = 0x34;
-
-        c.execute(&Instruction::SkipIfVxNotEqualsVy { vx: 0x2, vy: 0x3 })?;
-        assert_eq!(c.memory.pc, 14);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_set_vx_with_vy() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.v[1] = 0x10;
-        c.memory.v[2] = 0x20;
-
-        c.execute(&Instruction::SetVxWithVy { vx: 1, vy: 2 })?;
-
-        assert_eq!(c.memory.v[1], 0x20);
-        assert_eq!(c.memory.v[2], 0x20);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_or_vx_with_vy() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.v[1] = 0b101100;
-        c.memory.v[2] = 0b010110;
-
-        c.execute(&Instruction::OrVxWithVy { vx: 1, vy: 2 })?;
-
-        assert_eq!(c.memory.v[1], 0b111110);
-        assert_eq!(c.memory.v[2], 0b010110);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_and_vx_with_vy() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.v[1] = 0b101100;
-        c.memory.v[2] = 0b010110;
-
-        c.execute(&Instruction::AndVxWithVy { vx: 1, vy: 2 })?;
-
-        assert_eq!(c.memory.v[1], 0b000100);
-        assert_eq!(c.memory.v[2], 0b010110);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_xor_vx_with_vy() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.v[1] = 0b101100;
-        c.memory.v[2] = 0b010110;
-
-        c.execute(&Instruction::XorVxWithVy { vx: 1, vy: 2 })?;
-
-        assert_eq!(c.memory.v[1], 0b111010);
-        assert_eq!(c.memory.v[2], 0b010110);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_add_vx_with_vy() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.v[1] = 15;
-        c.memory.v[2] = 17;
-        c.memory.v[Memory::INDEX_FLAG_REGISTER] = 3;
-
-        c.execute(&Instruction::AddVxWithVy { vx: 1, vy: 2 })?;
-
-        assert_eq!(c.memory.v[1], 32);
-        assert_eq!(c.memory.v[2], 17);
-        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 0);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_add_vx_with_vy_overflow() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.v[1] = 0xFF;
-        c.memory.v[2] = 2;
-        c.memory.v[Memory::INDEX_FLAG_REGISTER] = 3;
-
-        c.execute(&Instruction::AddVxWithVy { vx: 1, vy: 2 })?;
-
-        assert_eq!(c.memory.v[1], 1);
-        assert_eq!(c.memory.v[2], 2);
-        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 1);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_subtract_vx_with_vy() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.v[1] = 17;
-        c.memory.v[2] = 15;
-        c.memory.v[Memory::INDEX_FLAG_REGISTER] = 3;
-
-        c.execute(&Instruction::SubtractVxWithVy { vx: 1, vy: 2 })?;
-
-        assert_eq!(c.memory.v[1], 2);
-        assert_eq!(c.memory.v[2], 15);
-        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 1);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_subtract_vx_with_vy_overflow() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.v[1] = 15;
-        c.memory.v[2] = 17;
-        c.memory.v[Memory::INDEX_FLAG_REGISTER] = 3;
-
-        c.execute(&Instruction::SubtractVxWithVy { vx: 1, vy: 2 })?;
-
-        assert_eq!(c.memory.v[1], 254);
-        assert_eq!(c.memory.v[2], 17);
-        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 0);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_subtract_vy_with_vx() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.v[1] = 15;
-        c.memory.v[2] = 17;
-        c.memory.v[Memory::INDEX_FLAG_REGISTER] = 3;
-
-        c.execute(&Instruction::SubtractVyWithVx { vx: 1, vy: 2 })?;
-
-        assert_eq!(c.memory.v[1], 2);
-        assert_eq!(c.memory.v[2], 17);
-        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 1);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_subtract_vy_with_vx_overflow() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.memory.v[1] = 17;
-        c.memory.v[2] = 15;
-        c.memory.v[Memory::INDEX_FLAG_REGISTER] = 3;
-
-        c.execute(&Instruction::SubtractVyWithVx { vx: 1, vy: 2 })?;
-
-        assert_eq!(c.memory.v[1], 254);
-        assert_eq!(c.memory.v[2], 15);
-        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 0);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_shift_1_right_vx_with_vy_ignore_vy() -> Result<()> {
-        let mut c = Chip8::new(Config {
-            shift_ignores_vy: true,
-            ..Config::default()
-        });
-
-        c.memory.v[1] = 0b10000001;
-        c.memory.v[2] = 0b00110000;
-
-        c.execute(&Instruction::Shift1RightVxWithVy { vx: 1, vy: 2 })?;
-
-        assert_eq!(c.memory.v[1], 0b01000000);
-        assert_eq!(c.memory.v[2], 0b00110000);
-        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 1);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_shift_1_right_vx_with_vy_use_vy() -> Result<()> {
-        let mut c = Chip8::new(Config {
-            shift_ignores_vy: false,
-            ..Config::default()
-        });
-
-        c.memory.v[1] = 0b10000001;
-        c.memory.v[2] = 0b00110000;
-
-        c.execute(&Instruction::Shift1RightVxWithVy { vx: 1, vy: 2 })?;
-
-        assert_eq!(c.memory.v[1], 0b00011000);
-        assert_eq!(c.memory.v[2], 0b00110000);
-        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 0);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_shift_1_left_vx_with_vy_ignore_vy() -> Result<()> {
-        let mut c = Chip8::new(Config {
-            shift_ignores_vy: true,
-            ..Config::default()
-        });
-
-        c.memory.v[1] = 0b10000001;
-        c.memory.v[2] = 0b00110000;
-
-        c.execute(&Instruction::Shift1LeftVxWithVy { vx: 1, vy: 2 })?;
-
-        assert_eq!(c.memory.v[1], 0b00000010);
-        assert_eq!(c.memory.v[2], 0b00110000);
-        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 1);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_shift_1_left_vx_with_vy_use_vy() -> Result<()> {
-        let mut c = Chip8::new(Config {
-            shift_ignores_vy: false,
-            ..Config::default()
-        });
-
-        c.memory.v[1] = 0b10000001;
-        c.memory.v[2] = 0b00110000;
-
-        c.execute(&Instruction::Shift1LeftVxWithVy { vx: 1, vy: 2 })?;
-
-        assert_eq!(c.memory.v[1], 0b01100000);
-        assert_eq!(c.memory.v[2], 0b00110000);
-        assert_eq!(c.memory.v[Memory::INDEX_FLAG_REGISTER], 0);
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_jump_with_offset_use_v0() -> Result<()> {
-        let mut c = Chip8::new(Config {
-            jump_reads_from_vx: false,
-            ..Config::default()
-        });
-
-        c.memory.v[0] = 100;
-        c.memory.v[1] = 200;
-
-        c.execute(&Instruction::JumpWithOffset {
-            vx: 0x1,
-            address: 0x123,
-        });
-
-        assert_eq!(c.memory.pc, (100 + 0x123));
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_jump_with_offset_use_vx() -> Result<()> {
-        let mut c = Chip8::new(Config {
-            jump_reads_from_vx: true,
-            ..Config::default()
-        });
-
-        c.memory.v[0] = 100;
-        c.memory.v[1] = 200;
-
-        c.execute(&Instruction::JumpWithOffset {
-            vx: 0x1,
-            address: 0x123,
-        });
-
-        assert_eq!(c.memory.pc, (200 + 0x123));
-
-        Ok(())
-    }
-
-    #[test]
-    fn execute_set_vx_with_random() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.execute(&Instruction::SetVxWithRandom {
-            vx: 1,
-            value: 0b11001100,
+    #[rstest]
+    fn execute_skip_if_vx_equals_value_not_equals(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SkipIfVxEqualsValue {
+            vx,
+            value: target.memory.v[vx] + 1,
         })?;
 
-        // TODO(nenikitov): Figure out how to seed and test RNG
-        assert_eq!(c.memory.v[1] & 0b00110011, 0);
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_skip_if_vx_not_equals_value_not_equals(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SkipIfVxNotEqualsValue {
+            vx,
+            value: target.memory.v[vx] + 1,
+        })?;
+
+        result.memory.increment_pc();
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_skip_if_vx_not_equals_value_equals(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SkipIfVxNotEqualsValue {
+            vx,
+            value: target.memory.v[vx],
+        })?;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_skip_if_vx_equals_vy_equals(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SkipIfVxEqualsVy { vx, vy: vx + 8 })?;
+
+        result.memory.increment_pc();
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_skip_if_vx_equals_vy_not_equals(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SkipIfVxEqualsVy { vx, vy: vx + 9 })?;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_skip_if_vx_not_equals_vy_not_equals(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SkipIfVxNotEqualsVy { vx, vy: vx + 9 })?;
+
+        result.memory.increment_pc();
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_skip_if_vx_not_vy_value_equals(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SkipIfVxNotEqualsVy { vx, vy: vx + 8 })?;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_set_vx_with_vy(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(3, 4)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SetVxWithVy { vx, vy })?;
+
+        result.memory.v[vx] = result.memory.v[vy];
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_or_vx_with_vy(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(3, 4)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::OrVxWithVy { vx, vy })?;
+
+        result.memory.v[vx] |= result.memory.v[vy];
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_and_vx_with_vy(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(3, 4)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::AndVxWithVy { vx, vy })?;
+
+        result.memory.v[vx] &= result.memory.v[vy];
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_xor_vx_with_vy(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(3, 4)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::XorVxWithVy { vx, vy })?;
+
+        result.memory.v[vx] ^= result.memory.v[vy];
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_add_vx_with_vy(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(3, 4)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::AddVxWithVy { vx, vy })?;
+
+        result.memory.v[vx] += result.memory.v[vy];
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 0;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_add_vx_with_vy_overflow(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(3, 4)] vy: usize,
+    ) -> Result<()> {
+        target.memory.v[vy] = 255;
+        target.execute(&Instruction::AddVxWithVy { vx, vy })?;
+
+        result.memory.v[vx] -= 1;
+        result.memory.v[vy] = 255;
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 1;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_subtract_vx_with_vy(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(6, 7)] vx: usize,
+        #[values(3, 4)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SubtractVxWithVy { vx, vy })?;
+
+        result.memory.v[vx] -= result.memory.v[vy];
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 1;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_subtract_vx_with_vy_overflow(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(3, 4)] vx: usize,
+        #[values(6, 7)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SubtractVxWithVy { vx, vy })?;
+
+        result.memory.v[vx] = result.memory.v[vx].wrapping_sub(result.memory.v[vy]);
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 0;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_subtract_vy_with_vx(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(3, 4)] vx: usize,
+        #[values(6, 7)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SubtractVyWithVx { vx, vy })?;
+
+        result.memory.v[vx] = result.memory.v[vy] - result.memory.v[vx];
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 1;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_subtract_vy_with_vx_overflow(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(6, 7)] vx: usize,
+        #[values(3, 4)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SubtractVyWithVx { vx, vy })?;
+
+        result.memory.v[vx] = result.memory.v[vy].wrapping_sub(result.memory.v[vx]);
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 0;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_shift_1_right_vx_with_vy_compat_ignore_vy(
+        #[with(Config { shift_ignores_vy: true, ..Config::default() })] mut target: Chip8,
+        #[with(target.clone())] mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(3, 4)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::Shift1RightVxWithVy { vx, vy })?;
+
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = result.memory.v[vx] & 0b00000001;
+        result.memory.v[vx] >>= 1;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_shift_1_right_vx_with_vy_compat_use_vy(
+        #[with(Config { shift_ignores_vy: false, ..Config::default() })] mut target: Chip8,
+        #[with(target.clone())] mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(3, 4)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::Shift1RightVxWithVy { vx, vy })?;
+
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = result.memory.v[vy] & 0b00000001;
+        result.memory.v[vx] = result.memory.v[vy] >> 1;
+
+        assert_eq!(target, result);
 
         Ok(())
     }
 
-    #[test]
-    fn execute_skip_if_vx_key_pressed_pressed() -> Result<()> {
-        let mut c = Chip8::default();
+    #[rstest]
+    fn execute_shift_1_left_vx_with_vy_compat_ignore_vy(
+        #[with(Config { shift_ignores_vy: true, ..Config::default() })] mut target: Chip8,
+        #[with(target.clone())] mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(3, 4)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::Shift1LeftVxWithVy { vx, vy })?;
 
-        c.memory.pc = 14;
-        c.memory.v[0x2] = 0x3;
-        c.memory.keys[0x3] = true;
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = (result.memory.v[vx] & 0b10000000) >> 7;
+        result.memory.v[vx] <<= 1;
 
-        c.execute(&Instruction::SkipIfVxKeyPressed { vx: 0x2 })?;
-        assert_eq!(c.memory.pc, 16);
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_shift_1_left_vx_with_vy_compat_use_vy(
+        #[with(Config { shift_ignores_vy: false, ..Config::default() })] mut target: Chip8,
+        #[with(target.clone())] mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(3, 4)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::Shift1LeftVxWithVy { vx, vy })?;
+
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = (result.memory.v[vy] & 0b10000000) >> 7;
+        result.memory.v[vx] = result.memory.v[vy] << 1;
+
+        assert_eq!(target, result);
 
         Ok(())
     }
 
-    #[test]
-    fn execute_skip_if_vx_key_pressed_not_pressed() -> Result<()> {
-        let mut c = Chip8::default();
+    #[rstest]
+    fn execute_jump_with_offset_compat_use_v0(
+        #[with(Config { jump_reads_from_vx: false, ..Config::default() })] mut target: Chip8,
+        #[with(target.clone())] mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(0x123, 0x234)] address: u16,
+    ) -> Result<()> {
+        target.execute(&Instruction::JumpWithOffset { vx, address })?;
 
-        c.memory.pc = 14;
-        c.memory.v[0x2] = 0x3;
-        c.memory.keys[0x3] = false;
+        result.memory.pc = address + result.memory.v[0] as u16;
 
-        c.execute(&Instruction::SkipIfVxKeyPressed { vx: 0x2 })?;
-        assert_eq!(c.memory.pc, 14);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn execute_skip_if_vx_key_not_pressed_not_pressed() -> Result<()> {
-        let mut c = Chip8::default();
+    #[rstest]
+    fn execute_jump_with_offset_compat_use_vx(
+        #[with(Config { jump_reads_from_vx: true, ..Config::default() })] mut target: Chip8,
+        #[with(target.clone())] mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(0x123, 0x234)] address: u16,
+    ) -> Result<()> {
+        target.execute(&Instruction::JumpWithOffset { vx, address })?;
 
-        c.memory.pc = 14;
-        c.memory.v[0x2] = 0x3;
-        c.memory.keys[0x3] = false;
+        result.memory.pc = address + result.memory.v[vx] as u16;
 
-        c.execute(&Instruction::SkipIfVxKeyNotPressed { vx: 0x2 })?;
-        assert_eq!(c.memory.pc, 16);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn execute_skip_if_vx_key_not_pressed_pressed() -> Result<()> {
-        let mut c = Chip8::default();
+    #[rstest]
+    fn execute_set_vx_with_random(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(0b11001100, 0b10101010)] value: u8,
+    ) -> Result<()> {
+        target.execute(&Instruction::SetVxWithRandom { vx, value })?;
 
-        c.memory.pc = 14;
-        c.memory.v[0x2] = 0x3;
-        c.memory.keys[0x3] = true;
+        result.memory.v[vx] = target.memory.v[vx];
 
-        c.execute(&Instruction::SkipIfVxKeyNotPressed { vx: 0x2 })?;
-        assert_eq!(c.memory.pc, 14);
-
+        assert_eq!(target, result);
+        assert_eq!(target.memory.v[vx] & (!value), 0);
         Ok(())
     }
 
-    #[test]
-    fn execute_set_vx_with_dt() -> Result<()> {
-        let mut c = Chip8::default();
+    #[rstest]
+    fn execute_skip_if_vx_key_pressed_pressed(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SkipIfVxKeyPressed { vx })?;
 
-        c.memory.dt = 40;
+        result.memory.increment_pc();
 
-        c.execute(&Instruction::SetVxWithDt { vx: 0x2 })?;
-
-        assert_eq!(c.memory.v[0x2], 40);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn execute_set_dt_with_vx() -> Result<()> {
-        let mut c = Chip8::default();
+    #[rstest]
+    fn execute_skip_if_vx_key_pressed_not_pressed(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 3)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SkipIfVxKeyPressed { vx })?;
 
-        c.memory.v[0x2] = 40;
-
-        c.execute(&Instruction::SetDtWithVx { vx: 0x2 })?;
-
-        assert_eq!(c.memory.dt, 40);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn execute_set_st_with_vx() -> Result<()> {
-        let mut c = Chip8::default();
+    #[rstest]
+    fn execute_skip_if_vx_key_not_pressed_not_pressed(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 3)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SkipIfVxKeyNotPressed { vx })?;
 
-        c.memory.v[0x2] = 40;
+        result.memory.increment_pc();
 
-        c.execute(&Instruction::SetStWithVx { vx: 0x2 })?;
+        assert_eq!(target, result);
+        Ok(())
+    }
 
-        assert_eq!(c.memory.st, 40);
+    #[rstest]
+    fn execute_skip_if_vx_key_not_pressed_pressed(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SkipIfVxKeyNotPressed { vx })?;
 
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_set_vx_with_dt(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SetVxWithDt { vx })?;
+
+        result.memory.v[vx] = result.memory.dt;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_set_dt_with_vx(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SetDtWithVx { vx })?;
+
+        result.memory.dt = result.memory.v[vx];
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_set_st_with_vx(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SetStWithVx { vx })?;
+
+        result.memory.st = result.memory.v[vx];
+
+        assert_eq!(target, result);
         Ok(())
     }
 }
