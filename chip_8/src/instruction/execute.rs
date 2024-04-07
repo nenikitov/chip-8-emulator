@@ -180,6 +180,13 @@ impl ExecuteInstruction for Chip8 {
             Instruction::SetStWithVx { vx } => {
                 memory.st = memory.v[vx];
             }
+            Instruction::AddIWithVx { vx } => {
+                memory.i += memory.v[vx] as u16;
+
+                if self.config.add_to_index_stores_overflow && memory.i >= 0x1000 {
+                    memory.v[Memory::INDEX_FLAG_REGISTER] = 1;
+                }
+            }
         };
 
         Ok(())
@@ -922,6 +929,71 @@ mod tests {
         target.execute(&Instruction::SetStWithVx { vx })?;
 
         result.memory.st = result.memory.v[vx];
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_add_i_with_vx_compat_store_overflow(
+        #[with(Config { add_to_index_stores_overflow: true, ..Config::default() })]
+        mut target: Chip8,
+        #[with(target.clone())] mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::AddIWithVx { vx })?;
+
+        result.memory.i += result.memory.v[vx] as u16;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_add_i_with_vx_overflow_compat_store_overflow(
+        #[with(Config { add_to_index_stores_overflow: true, ..Config::default() })]
+        mut target: Chip8,
+        #[with(target.clone())] mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.memory.i = 0x1000;
+
+        target.execute(&Instruction::AddIWithVx { vx })?;
+
+        result.memory.i = 0x1000 + result.memory.v[vx] as u16;
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 1;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_add_i_with_vx_compat_ignore_overflow(
+        #[with(Config { add_to_index_stores_overflow: false, ..Config::default() })]
+        mut target: Chip8,
+        #[with(target.clone())] mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::AddIWithVx { vx })?;
+
+        result.memory.i += result.memory.v[vx] as u16;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_add_i_with_vx_overflow_compat_ignore_overflow(
+        #[with(Config { add_to_index_stores_overflow: false, ..Config::default() })]
+        mut target: Chip8,
+        #[with(target.clone())] mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.memory.i = 0x1000;
+
+        target.execute(&Instruction::AddIWithVx { vx })?;
+
+        result.memory.i = 0x1000 + result.memory.v[vx] as u16;
 
         assert_eq!(target, result);
         Ok(())

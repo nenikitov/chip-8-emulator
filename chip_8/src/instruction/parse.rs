@@ -144,6 +144,11 @@ pub enum Instruction {
     SetStWithVx {
         vx: usize,
     },
+    // Load the sum of I and Vx into I.
+    // **COMPATIBILITY:** Optionally stores if resulting memory is outside in carry flag.
+    AddIWithVx {
+        vx: usize,
+    },
 }
 
 impl TryFrom<Opcode> for Instruction {
@@ -189,6 +194,7 @@ impl TryFrom<Opcode> for Instruction {
             (0xF, _, 0x0, 0x7) => Instruction::SetVxWithDt { vx: x },
             (0xF, _, 0x1, 0x5) => Instruction::SetDtWithVx { vx: x },
             (0xF, _, 0x1, 0x8) => Instruction::SetStWithVx { vx: x },
+            (0xF, _, 0x1, 0xE) => Instruction::AddIWithVx { vx: x },
             _ => return Err(ParseError::UnknownOpcode(value)),
         };
 
@@ -512,6 +518,16 @@ mod tests {
         assert_eq!(
             Instruction::try_from(Opcode::from(0xF118)),
             Ok(Instruction::SetStWithVx { vx: 0x1 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_fx1e_returns_add_i_with_vx() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0xF11E)),
+            Ok(Instruction::AddIWithVx { vx: 0x1 })
         );
 
         Ok(())

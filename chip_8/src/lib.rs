@@ -7,9 +7,10 @@
     clippy::cast_precision_loss,
     clippy::module_name_repetitions,
     clippy::must_use_candidate,
+    clippy::struct_excessive_bools,
     clippy::too_many_lines,
     clippy::unreadable_literal,
-    clippy::wildcard_imports
+    clippy::wildcard_imports,
 )]
 #![warn(unused_imports)]
 
