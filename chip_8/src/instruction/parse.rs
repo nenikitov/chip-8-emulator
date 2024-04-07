@@ -199,7 +199,11 @@ impl TryFrom<Opcode> for Instruction {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use eyre::Result;
+    use similar_asserts::assert_eq;
+
+    // TODO(nenikitov): Use `rstest` here.
 
     #[test]
     fn from_opcode_00e0_returns_display_clear() -> Result<()> {

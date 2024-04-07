@@ -106,6 +106,9 @@ mod tests {
     use super::*;
 
     use eyre::Result;
+    use similar_asserts::assert_eq;
+
+    // TODO(nenikitov): Use `rstest` here.
 
     #[test]
     fn advance_instruction_ready() -> Result<()> {
