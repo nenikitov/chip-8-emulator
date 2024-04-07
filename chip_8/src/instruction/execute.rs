@@ -6,6 +6,8 @@ use thiserror::Error;
 pub enum ExecuteError {
     #[error("instruction {0:?} is not supported")]
     UnsupportedInstruction(Instruction),
+    #[error("key {0:?} is not in 0-F range")]
+    InvalidKey(u8),
 }
 
 pub trait ExecuteInstruction {
@@ -159,7 +161,7 @@ impl ExecuteInstruction for Chip8 {
                         memory.increment_pc();
                     }
                 } else {
-                    todo!("Figure out what to do on invalid key");
+                    return Err(ExecuteError::InvalidKey(memory.v[vx]));
                 }
             }
             Instruction::SkipIfVxKeyNotPressed { vx } => {
@@ -168,7 +170,7 @@ impl ExecuteInstruction for Chip8 {
                         memory.increment_pc();
                     }
                 } else {
-                    todo!("Figure out what to do on invalid key");
+                    return Err(ExecuteError::InvalidKey(memory.v[vx]));
                 }
             }
             Instruction::SetVxWithDt { vx } => {
@@ -186,6 +188,9 @@ impl ExecuteInstruction for Chip8 {
                 if self.config.add_to_index_stores_overflow && memory.i >= 0x1000 {
                     memory.v[Memory::INDEX_FLAG_REGISTER] = 1;
                 }
+            }
+            Instruction::SetVxWithNextPressedKeyBlocking { vx } => {
+                self.state = State::WaitingForKey { vx };
             }
         };
 
@@ -994,6 +999,20 @@ mod tests {
         target.execute(&Instruction::AddIWithVx { vx })?;
 
         result.memory.i = 0x1000 + result.memory.v[vx] as u16;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_set_vx_with_next_pressed_key_blocking(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0, 1)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SetVxWithNextPressedKeyBlocking { vx })?;
+
+        result.state = State::WaitingForKey { vx };
 
         assert_eq!(target, result);
         Ok(())

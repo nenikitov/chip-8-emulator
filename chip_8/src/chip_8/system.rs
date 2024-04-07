@@ -28,7 +28,9 @@ impl From<ExecuteError> for InstructionError {
 pub(crate) enum State {
     #[default]
     Ready,
-    WaitingForKey(u8),
+    WaitingForKey {
+        vx: usize,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,6 +61,11 @@ impl Chip8 {
         }
     }
 
+    /// Access system memory.
+    pub fn memory(&self) -> &Memory {
+        &self.memory
+    }
+
     /// Reset memory and load a ROM into RAM.
     ///
     /// # Arguments
@@ -73,9 +80,9 @@ impl Chip8 {
     ///
     /// # Errors
     ///
-    /// If the instruction did not execute correctly.
+    /// Return an [`InstructionError`] if the instruction did not execute correctly.
     pub fn advance_instruction(&mut self) -> Result<(), InstructionError> {
-        if self.state == State::Ready {
+        if self.state == State::Ready && self.memory.dt == 0 {
             let opcode = Opcode::from((
                 self.memory.ram[self.memory.pc as usize],
                 self.memory.ram[self.memory.pc as usize + 1],
@@ -95,9 +102,47 @@ impl Chip8 {
         self.memory.advance_timer();
     }
 
-    /// Access system memory.
-    pub fn memory(&self) -> &Memory {
-        &self.memory
+    /// Presses a key by the index.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The index of the key. Must be between 0x0 and 0xF (inclusive).
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`InstructionError`] if the provided key is outside the valid range.
+    pub fn press_key(&mut self, key: u8) -> Result<(), InstructionError> {
+        if key > 0xF {
+            return Err(ExecuteError::InvalidKey(key).into());
+        }
+
+        self.memory.keys[key as usize] = true;
+
+        Ok(())
+    }
+
+    /// Unpress a key by the index.
+    /// Also unblocks the execution if the system was waiting for a key press.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The index of the key. Must be between 0x0 and 0xF (inclusive).
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`InstructionError`] if the provided key is outside the valid range.
+    pub fn unpress_key(&mut self, key: u8) -> Result<(), InstructionError> {
+        if key > 0xF {
+            return Err(ExecuteError::InvalidKey(key).into());
+        }
+
+        self.memory.keys[key as usize] = false;
+
+        if let State::WaitingForKey { vx } = self.state {
+            self.memory.v[vx] = key;
+        }
+
+        Ok(())
     }
 }
 
@@ -136,10 +181,10 @@ mod tests {
     }
 
     #[test]
-    fn advance_instruction_waiting() -> Result<()> {
+    fn advance_instruction_waiting_for_key() -> Result<()> {
         let mut c = Chip8::default();
 
-        c.state = State::WaitingForKey(0);
+        c.state = State::WaitingForKey { vx: 0 };
 
         c.load(&[
             0x61, 0x02, // Load 2 into register 1
@@ -156,4 +201,27 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn advance_instruction_waiting_dt() -> Result<()> {
+        let mut c = Chip8::default();
+
+        c.load(&[
+            0x61, 0x02, // Load 2 into register 1
+            0x71, 0x03, // Add 3 to register 1
+        ]);
+        c.memory.dt = 1;
+
+        assert_eq!(c.memory.v[1], 0);
+        assert_eq!(c.memory.pc, Memory::INDEX_PROGRAM_START);
+
+        c.advance_instruction()?;
+
+        assert_eq!(c.memory.v[1], 0);
+        assert_eq!(c.memory.pc, Memory::INDEX_PROGRAM_START);
+
+        Ok(())
+    }
+
+    // TODO(nenikitov): Test key pressing
 }

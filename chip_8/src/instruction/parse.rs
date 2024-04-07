@@ -149,6 +149,11 @@ pub enum Instruction {
     AddIWithVx {
         vx: usize,
     },
+    // Stop execution and wait until a key is pressed.
+    // A key that was pressed is stored in Vx.
+    SetVxWithNextPressedKeyBlocking {
+        vx: usize,
+    },
 }
 
 impl TryFrom<Opcode> for Instruction {
@@ -192,6 +197,7 @@ impl TryFrom<Opcode> for Instruction {
             (0xE, _, 0x9, 0xE) => Instruction::SkipIfVxKeyPressed { vx: x },
             (0xE, _, 0xA, 0x1) => Instruction::SkipIfVxKeyNotPressed { vx: x },
             (0xF, _, 0x0, 0x7) => Instruction::SetVxWithDt { vx: x },
+            (0xF, _, 0x0, 0xA) => Instruction::SetVxWithNextPressedKeyBlocking { vx: x },
             (0xF, _, 0x1, 0x5) => Instruction::SetDtWithVx { vx: x },
             (0xF, _, 0x1, 0x8) => Instruction::SetStWithVx { vx: x },
             (0xF, _, 0x1, 0xE) => Instruction::AddIWithVx { vx: x },
@@ -498,6 +504,16 @@ mod tests {
         assert_eq!(
             Instruction::try_from(Opcode::from(0xF107)),
             Ok(Instruction::SetVxWithDt { vx: 0x1 })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn from_opcode_fx0a_returns_set_vx_with_next_pressed_key_blocking() -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(0xF10A)),
+            Ok(Instruction::SetVxWithNextPressedKeyBlocking { vx: 0x1 })
         );
 
         Ok(())
