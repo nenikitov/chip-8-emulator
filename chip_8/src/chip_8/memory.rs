@@ -232,8 +232,10 @@ mod tests {
     fn target() -> Memory {
         let mut memory = Memory::default();
 
-        memory.ram[Memory::INDEX_PROGRAM_START as usize..][..4]
-            .copy_from_slice(&[0x61, 0x02, 0x71, 0x03]);
+        memory.ram[Memory::INDEX_PROGRAM_START as usize..][..4].copy_from_slice(&[
+            0x61, 0x02, // Load 2 into register 1
+            0x71, 0x03, // Add 3 to it
+        ]);
         memory.vram[0].iter_mut().for_each(|e| *e = true);
         memory.stack.push(Memory::INDEX_PROGRAM_START);
         memory.dt = 60;

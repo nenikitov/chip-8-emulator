@@ -210,8 +210,10 @@ mod tests {
     fn target(#[default(Config::default())] config: Config) -> Chip8 {
         let mut chip = Chip8::new(config);
 
-        chip.memory.ram[Memory::INDEX_PROGRAM_START as usize..][..4]
-            .copy_from_slice(&[0x61, 0x02, 0x71, 0x03]);
+        chip.memory.ram[Memory::INDEX_PROGRAM_START as usize..][..4].copy_from_slice(&[
+            0x61, 0x02, // Load 2 into register 1
+            0x71, 0x03, // Add 3 to it
+        ]);
         chip.memory.vram[0].iter_mut().for_each(|e| *e = true);
         chip.memory.stack.push(Memory::INDEX_PROGRAM_START);
         chip.memory.dt = 60;
