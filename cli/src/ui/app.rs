@@ -8,6 +8,7 @@ use ratatui::{layout::Flex, prelude::*};
 use crate::timer::Timer;
 
 use super::{
+    debug_screen::{Keypad, MemoryScreen},
     pixel_display::PixelDisplay,
     stats::{Stat, StatBias},
     LayoutAlign, LayoutLinear, LayoutSizeError, WidgetSize,
@@ -22,8 +23,8 @@ pub enum AppState {
 }
 
 pub struct App {
-    chip: Chip8,
-    state: AppState,
+    pub(crate) chip: Chip8,
+    pub(crate) state: AppState,
     timer_instructions: Timer,
     target_instructions: usize,
     timer_frames: RefCell<Timer>,
@@ -136,14 +137,34 @@ impl<'a> Widget for AppWidget<'a> {
             spacing: 0,
         };
 
-        let screen = PixelDisplay {
-            display: self.app.chip.memory().vram.as_slice(),
+        let keys = LayoutAlign {
+            child: &Keypad { app: &self.app },
+            horizontal: Alignment::Left,
+            vertical: Alignment::Center,
         };
-
-        let emulator = LayoutAlign {
-            child: &screen,
+        let screen = LayoutAlign {
+            child: &PixelDisplay {
+                display: self.app.chip.memory().vram.as_slice(),
+            },
             horizontal: Alignment::Center,
             vertical: Alignment::Center,
+        };
+        let memory = LayoutAlign {
+            child: &MemoryScreen { app: &self.app },
+            horizontal: Alignment::Right,
+            vertical: Alignment::Center,
+        };
+
+        let emulator = LayoutLinear {
+            direction: Direction::Horizontal,
+            children: vec![
+                (&keys, None),
+                (&screen, Some(Constraint::Fill(1))),
+                (&memory, None),
+            ],
+            flex_main_axis: None,
+            flex_cross_axis: true,
+            spacing: 2,
         };
 
         LayoutSizeError {
@@ -152,7 +173,7 @@ impl<'a> Widget for AppWidget<'a> {
                 children: vec![(&stats, None), (&emulator, Some(Constraint::Fill(1)))],
                 flex_main_axis: None,
                 flex_cross_axis: true,
-                spacing: 0,
+                spacing: 1,
             },
         }
         .render_sized(area, buf);
