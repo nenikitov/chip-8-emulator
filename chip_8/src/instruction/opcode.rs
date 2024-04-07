@@ -52,39 +52,76 @@ impl From<Opcode> for (usize, usize, usize, usize, u8, u16) {
 mod tests {
     use super::*;
 
-    #[test]
-    fn from_u16_splits() {
+    use eyre::Result;
+    use rstest::*;
+    use similar_asserts::assert_eq;
+
+    #[rstest]
+    fn from_u16_splits(
+        #[values(
+            (0xD123, 0xD, 0x1, 0x2, 0x3, 0x23, 0x123),
+            (0xA974, 0xA, 0x9, 0x7, 0x4, 0x74, 0x974)
+        )]
+        opcode: (u16, usize, usize, usize, usize, u8, u16),
+    ) -> Result<()> {
+        let (opcode, i, x, y, n, nn, nnn) = opcode;
+
         assert_eq!(
-            Opcode::from(0xD123),
+            Opcode::from(opcode),
             Opcode {
-                i: 0xD,
-                x: 0x1,
-                y: 0x2,
-                n: 0x3,
-                nn: 0x23,
-                nnn: 0x123
+                i,
+                x,
+                y,
+                n,
+                nn,
+                nnn
             }
         );
+
+        Ok(())
     }
 
-    #[test]
-    fn from_u8_splits() {
+    #[rstest]
+    fn from_u8_u8_splits(
+        #[values(
+            ((0xD1, 0x23), 0xD, 0x1, 0x2, 0x3, 0x23, 0x123),
+            ((0xA9, 0x74), 0xA, 0x9, 0x7, 0x4, 0x74, 0x974)
+        )]
+        opcode: ((u8, u8), usize, usize, usize, usize, u8, u16),
+    ) -> Result<()> {
+        let (opcode, i, x, y, n, nn, nnn) = opcode;
+
         assert_eq!(
-            Opcode::from((0xA9, 0x74)),
+            Opcode::from(opcode),
             Opcode {
-                i: 0xA,
-                x: 0x9,
-                y: 0x7,
-                n: 0x4,
-                nn: 0x74,
-                nnn: 0x974
+                i,
+                x,
+                y,
+                n,
+                nn,
+                nnn,
             }
         );
+
+        Ok(())
     }
 
-    #[test]
-    fn into_tuple_converts() {
-        let (i, x, y, n, nn, nnn) = Opcode::from(0xA2B5).into();
-        assert_eq!((i, x, y, n, nn, nnn), (0xA, 0x2, 0xB, 0x5, 0xB5, 0x2B5))
+    #[rstest]
+    fn into_tuple_converts(
+        #[values(
+            (0xD123, 0xD, 0x1, 0x2, 0x3, 0x23, 0x123),
+            (0xA974, 0xA, 0x9, 0x7, 0x4, 0x74, 0x974)
+        )]
+        opcode: (u16, usize, usize, usize, usize, u8, u16),
+    ) -> Result<()> {
+        let (opcode, i_target, x_target, y_target, n_target, nn_target, nnn_target) = opcode;
+
+        let (i, x, y, n, nn, nnn) = Opcode::from(opcode).into();
+        assert_eq!(
+            (i, x, y, n, nn, nnn),
+            (i_target, x_target, y_target, n_target, nn_target, nnn_target)
+        );
+
+        Ok(())
     }
 }

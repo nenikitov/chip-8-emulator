@@ -114,7 +114,7 @@ const FONT: [[u8; 5]; 16] = [
     ],
 ];
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Memory {
     /// RAM.
     /// * `0x000..=0x1FFF` is unused (except the font).
@@ -135,6 +135,20 @@ pub struct Memory {
     pub i: u16,
     /// General purpose registers.
     pub v: [u8; Self::SIZE_REGISTERS],
+    /// If the keys are pressed.
+    pub keys: [bool; Self::SIZE_KEYS],
+}
+
+impl Memory {
+    pub const SIZE_RAM: usize = 4 * 1024;
+    pub const SIZE_REGISTERS: usize = 16;
+    pub const SIZE_KEYS: usize = 16;
+    pub const SIZE_DISPLAY_WIDTH: usize = 64;
+    pub const SIZE_DISPLAY_HEIGHT: usize = 32;
+
+    pub const INDEX_PROGRAM_START: u16 = 0x200;
+
+    pub const INDEX_FLAG_REGISTER: usize = Self::SIZE_REGISTERS - 1;
 }
 
 impl Default for Memory {
@@ -143,23 +157,16 @@ impl Default for Memory {
             ram: [0; Self::SIZE_RAM],
             vram: [[false; Self::SIZE_DISPLAY_WIDTH]; Self::SIZE_DISPLAY_HEIGHT],
             stack: Vec::default(),
-            pc: Self::PROGRAM_START,
+            pc: Self::INDEX_PROGRAM_START,
             dt: 0,
             st: 0,
             i: 0,
             v: [0; Self::SIZE_REGISTERS],
+            keys: [false; Self::SIZE_KEYS],
         };
         s.clear_memory();
         s
     }
-}
-
-impl Memory {
-    pub const SIZE_RAM: usize = 4 * 1024;
-    pub const SIZE_REGISTERS: usize = 16;
-    pub const SIZE_DISPLAY_WIDTH: usize = 64;
-    pub const SIZE_DISPLAY_HEIGHT: usize = 32;
-    pub const PROGRAM_START: u16 = 0x200;
 }
 
 impl Memory {
@@ -170,7 +177,7 @@ impl Memory {
     /// * `program` - Program to load.
     pub(crate) fn load(&mut self, rom: &[u8]) {
         self.clear_memory();
-        self.ram[Self::PROGRAM_START as usize..][..rom.len()].copy_from_slice(rom);
+        self.ram[Self::INDEX_PROGRAM_START as usize..][..rom.len()].copy_from_slice(rom);
     }
 
     /// Advance program counter to the next instruction.
@@ -205,7 +212,7 @@ impl Memory {
         self.clear_vram();
         self.stack.clear();
         self.v.iter_mut().for_each(|e| *e = 0);
-        self.pc = Self::PROGRAM_START;
+        self.pc = Self::INDEX_PROGRAM_START;
         self.dt = 0;
         self.st = 0;
         self.i = 0;
@@ -217,6 +224,9 @@ mod tests {
     use super::*;
 
     use eyre::Result;
+    use similar_asserts::assert_eq;
+
+    // TODO(nenikitov): Use `rstest` here.
 
     #[test]
     fn default_initializes_ram() -> Result<()> {
@@ -255,7 +265,7 @@ mod tests {
     #[test]
     fn default_initializes_other() -> Result<()> {
         let m = Memory::default();
-        assert_eq!(m.pc, Memory::PROGRAM_START);
+        assert_eq!(m.pc, Memory::INDEX_PROGRAM_START);
         assert_eq!(m.dt, 0);
         assert_eq!(m.st, 0);
 
@@ -268,7 +278,10 @@ mod tests {
 
         m.load(&[10, 20, 30]);
 
-        assert_eq!(m.ram[Memory::PROGRAM_START as usize..][..3], [10, 20, 30]);
+        assert_eq!(
+            m.ram[Memory::INDEX_PROGRAM_START as usize..][..3],
+            [10, 20, 30]
+        );
 
         Ok(())
     }
@@ -278,7 +291,7 @@ mod tests {
         let empty = Memory::default();
         let mut modified = Memory::default();
 
-        modified.ram[Memory::PROGRAM_START as usize + 10] = 10;
+        modified.ram[Memory::INDEX_PROGRAM_START as usize + 10] = 10;
         modified.pc = 20;
         modified.vram[0][0] = true;
 
@@ -297,7 +310,7 @@ mod tests {
         m.increment_pc();
         m.increment_pc();
 
-        assert_eq!(m.pc, Memory::PROGRAM_START + 6);
+        assert_eq!(m.pc, Memory::INDEX_PROGRAM_START + 6);
 
         Ok(())
     }
@@ -362,7 +375,7 @@ mod tests {
     fn clear_works() -> Result<()> {
         let empty = Memory::default();
         let mut modified = Memory::default();
-        modified.ram[Memory::PROGRAM_START as usize] = 0xFF;
+        modified.ram[Memory::INDEX_PROGRAM_START as usize] = 0xFF;
         modified
             .vram
             .iter_mut()
