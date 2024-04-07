@@ -52,7 +52,6 @@ impl Chip8 {
 }
 
 impl Chip8 {
-    // TODO(nenikitov): Add configuration parameter here
     pub fn new(config: Config) -> Self {
         Self {
             config,

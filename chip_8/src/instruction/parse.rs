@@ -234,7 +234,6 @@ mod tests {
             Instruction::try_from(Opcode::from(0x00E0)),
             Ok(Instruction::DisplayClear)
         );
-
         Ok(())
     }
 
@@ -244,7 +243,6 @@ mod tests {
             Instruction::try_from(Opcode::from(0x00EE)),
             Ok(Instruction::SubroutineReturn)
         );
-
         Ok(())
     }
 
@@ -254,7 +252,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x0, nnn: address })),
             Ok(Instruction::System { address })
         );
-
         Ok(())
     }
 
@@ -264,7 +261,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x1, nnn: address })),
             Ok(Instruction::Jump { address })
         );
-
         Ok(())
     }
 
@@ -276,7 +272,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x2, nnn: address })),
             Ok(Instruction::SubroutineCall { address })
         );
-
         Ok(())
     }
 
@@ -289,7 +284,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x3, x: vx, nn: value })),
             Ok(Instruction::SkipIfVxEqualsValue { vx, value })
         );
-
         Ok(())
     }
 
@@ -302,7 +296,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x4, x: vx, nn: value })),
             Ok(Instruction::SkipIfVxNotEqualsValue { vx, value })
         );
-
         Ok(())
     }
 
@@ -315,7 +308,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x5, x: vx, y: vy, n: 0x0 })),
             Ok(Instruction::SkipIfVxEqualsVy { vx, vy })
         );
-
         Ok(())
     }
 
@@ -328,7 +320,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x6, x: vx, nn: value })),
             Ok(Instruction::SetVxWithValue { vx, value })
         );
-
         Ok(())
     }
 
@@ -341,7 +332,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x7, x: vx, nn: value })),
             Ok(Instruction::AddVxValue { vx, value })
         );
-
         Ok(())
     }
 
@@ -354,7 +344,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x0 })),
             Ok(Instruction::SetVxWithVy { vx, vy })
         );
-
         Ok(())
     }
 
@@ -367,7 +356,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x1 })),
             Ok(Instruction::OrVxWithVy { vx, vy })
         );
-
         Ok(())
     }
 
@@ -380,7 +368,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x2 })),
             Ok(Instruction::AndVxWithVy { vx, vy })
         );
-
         Ok(())
     }
 
@@ -393,7 +380,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x3 })),
             Ok(Instruction::XorVxWithVy { vx, vy })
         );
-
         Ok(())
     }
 
@@ -406,7 +392,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x4 })),
             Ok(Instruction::AddVxWithVy { vx, vy })
         );
-
         Ok(())
     }
 
@@ -419,7 +404,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x5 })),
             Ok(Instruction::SubtractVxWithVy { vx, vy })
         );
-
         Ok(())
     }
 
@@ -432,7 +416,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x6 })),
             Ok(Instruction::Shift1RightVxWithVy { vx, vy })
         );
-
         Ok(())
     }
 
@@ -445,7 +428,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0x7 })),
             Ok(Instruction::SubtractVyWithVx { vx, vy })
         );
-
         Ok(())
     }
 
@@ -458,7 +440,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x8, x: vx, y: vy, n: 0xE })),
             Ok(Instruction::Shift1LeftVxWithVy { vx, vy })
         );
-
         Ok(())
     }
 
@@ -471,7 +452,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0x9, x: vx, y: vy, n: 0x0 })),
             Ok(Instruction::SkipIfVxNotEqualsVy { vx, vy })
         );
-
         Ok(())
     }
 
@@ -481,7 +461,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0xA, nnn: value })),
             Ok(Instruction::SetIWithValue { value })
         );
-
         Ok(())
     }
 
@@ -497,7 +476,6 @@ mod tests {
                 address: (vx << 8) as u16 + value as u16
             })
         );
-
         Ok(())
     }
 
@@ -510,7 +488,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0xC, x: vx, nn: value })),
             Ok(Instruction::SetVxWithRandom { vx, value })
         );
-
         Ok(())
     }
 
@@ -524,7 +501,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0xD, x: vx, y: vy, n: height })),
             Ok(Instruction::DisplayDraw { vx, vy, height })
         );
-
         Ok(())
     }
 
@@ -534,7 +510,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0xE, x: vx, nn: 0x9E })),
             Ok(Instruction::SkipIfVxKeyPressed { vx })
         );
-
         Ok(())
     }
 
@@ -546,7 +521,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0xE, x: vx, nn: 0xA1 })),
             Ok(Instruction::SkipIfVxKeyNotPressed { vx })
         );
-
         Ok(())
     }
 
@@ -556,7 +530,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0xF, x: vx, nn: 0x07 })),
             Ok(Instruction::SetVxWithDt { vx })
         );
-
         Ok(())
     }
 
@@ -568,7 +541,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0xF, x: vx, nn: 0x0A })),
             Ok(Instruction::SetVxWithNextPressedKeyBlocking { vx })
         );
-
         Ok(())
     }
 
@@ -578,7 +550,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0xF, x: vx, nn: 0x15 })),
             Ok(Instruction::SetDtWithVx { vx })
         );
-
         Ok(())
     }
 
@@ -588,7 +559,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0xF, x: vx, nn: 0x18 })),
             Ok(Instruction::SetStWithVx { vx })
         );
-
         Ok(())
     }
 
@@ -598,7 +568,6 @@ mod tests {
             Instruction::try_from(Opcode::from(opcode! { i: 0xF, x: vx, nn: 0x1E })),
             Ok(Instruction::AddIWithVx { vx })
         );
-
         Ok(())
     }
 }
