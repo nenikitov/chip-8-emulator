@@ -1,0 +1,40 @@
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Spend CI time only on latest ref: https://github.com/jonhoo/rust-ci-conf/pull/5
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+name: test
+
+jobs:
+  doc:
+    name: doc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install nightly
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Generate lock
+        if: hashfiles('cargo.lock') == ''
+        run: cargo generate-lockfile
+      - name: doc
+        run: cargo test --locked --all-features --doc
+  unit:
+    name: unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install nightly
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Generate lock
+        if: hashfiles('cargo.lock') == ''
+        run: cargo generate-lockfile
+      - name: doc
+        run: cargo test --locked --all-features --lib
