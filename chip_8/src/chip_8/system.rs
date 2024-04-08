@@ -139,6 +139,7 @@ impl Chip8 {
 
         if let State::WaitingForKey { vx } = self.state {
             self.memory.v[vx] = key;
+            self.state = State::Ready;
         }
 
         Ok(())
@@ -247,5 +248,40 @@ mod tests {
         Ok(())
     }
 
-    // TODO(nenikitov): Test key pressing
+    #[rstest]
+    fn press_key(mut target: Chip8, mut result: Chip8) -> Result<()> {
+        target.press_key(0xF);
+
+        result.memory.keys[0xF] = true;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn unpress_key(mut target: Chip8, mut result: Chip8) -> Result<()> {
+        target.unpress_key(0x0);
+
+        result.memory.keys[0x0] = false;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn unpress_key_unblocks_machine_and_stores_pressed_key(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(0x0, 0x2)] key: u8,
+    ) -> Result<()> {
+        target.state = State::WaitingForKey { vx };
+        target.unpress_key(key);
+
+        result.memory.keys[key as usize] = false;
+        result.memory.v[vx] = key;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
 }
