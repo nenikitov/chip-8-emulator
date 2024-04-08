@@ -10,7 +10,7 @@
     clippy::struct_excessive_bools,
     clippy::too_many_lines,
     clippy::unreadable_literal,
-    clippy::wildcard_imports,
+    clippy::wildcard_imports
 )]
 #![warn(unused_imports)]
 

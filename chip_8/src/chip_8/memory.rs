@@ -216,6 +216,7 @@ impl Memory {
         self.dt = 0;
         self.st = 0;
         self.i = 0;
+        self.keys = [false; Self::SIZE_KEYS];
     }
 }
 
@@ -224,172 +225,168 @@ mod tests {
     use super::*;
 
     use eyre::Result;
+    use rstest::*;
     use similar_asserts::assert_eq;
 
-    // TODO(nenikitov): Use `rstest` here.
+    #[fixture]
+    fn target() -> Memory {
+        let mut memory = Memory::default();
 
-    #[test]
+        memory.ram[Memory::INDEX_PROGRAM_START as usize..][..4].copy_from_slice(&[
+            0x61, 0x02, // Load 2 into register 1
+            0x71, 0x03, // Add 3 to it
+        ]);
+        memory.vram[0].iter_mut().for_each(|e| *e = true);
+        memory.stack.push(Memory::INDEX_PROGRAM_START);
+        memory.dt = 60;
+        memory.st = 10;
+        memory.i = 100;
+        memory.v = [0, 1, 2, 3, 4, 5, 31, 59, 0, 1, 2, 3, 4, 5, 30, 60];
+        memory.keys = [
+            true, false, true, false, true, false, true,
+            false, // First 8 are pressed and unpressed
+            false, false, false, false, false, false, false, false, // Last 8 are not pressed
+        ];
+
+        memory
+    }
+
+    #[fixture]
+    fn result(target: Memory) -> Memory {
+        target.clone()
+    }
+
+    #[rstest]
     fn default_initializes_ram() -> Result<()> {
-        let m = Memory::default();
-        assert_eq!(m.ram[0..0x50], [0; 0x50]);
-        assert_eq!(&m.ram[0x50..=0x9F], FONT.flatten());
-        assert_eq!(m.ram[0xA0..Memory::SIZE_RAM], [0; Memory::SIZE_RAM - 0xA0]);
+        let target = Memory::default();
 
+        assert_eq!(target.ram[0..0x50], [0; 0x50]);
+        assert_eq!(&target.ram[0x50..=0x9F], FONT.flatten());
+        assert_eq!(
+            target.ram[0xA0..Memory::SIZE_RAM],
+            [0; Memory::SIZE_RAM - 0xA0]
+        );
         Ok(())
     }
-    #[test]
+
+    #[rstest]
     fn default_initializes_display() -> Result<()> {
-        let m = Memory::default();
+        let target = Memory::default();
+
         assert_eq!(
-            m.vram,
+            target.vram,
             [[false; Memory::SIZE_DISPLAY_WIDTH]; Memory::SIZE_DISPLAY_HEIGHT]
         );
-
         Ok(())
     }
-    #[test]
+
+    #[rstest]
     fn default_initializes_stack() -> Result<()> {
         let m = Memory::default();
-        assert_eq!(m.stack, [0; 0]);
 
+        assert_eq!(m.stack, vec![]);
         Ok(())
     }
-    #[test]
+
+    #[rstest]
     fn default_initializes_regitsers() -> Result<()> {
         let m = Memory::default();
+
         assert_eq!(m.i, 0);
         assert_eq!(m.v, [0; Memory::SIZE_REGISTERS]);
-
         Ok(())
     }
-    #[test]
+
+    #[rstest]
     fn default_initializes_other() -> Result<()> {
         let m = Memory::default();
+
         assert_eq!(m.pc, Memory::INDEX_PROGRAM_START);
         assert_eq!(m.dt, 0);
         assert_eq!(m.st, 0);
-
         Ok(())
     }
 
-    #[test]
+    #[rstest]
     fn load_loads() -> Result<()> {
-        let mut m = Memory::default();
+        let mut target = Memory::default();
+        let mut result = Memory::default();
 
-        m.load(&[10, 20, 30]);
+        target.load(&[10, 20, 30]);
 
-        assert_eq!(
-            m.ram[Memory::INDEX_PROGRAM_START as usize..][..3],
-            [10, 20, 30]
-        );
+        result.ram[Memory::INDEX_PROGRAM_START as usize..][..3].copy_from_slice(&[10, 20, 30]);
 
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn load_resets_memory() -> Result<()> {
-        let empty = Memory::default();
-        let mut modified = Memory::default();
+    #[rstest]
+    fn load_resets_memory(
+        mut target: Memory,
+        #[with(Memory::default())] mut result: Memory,
+    ) -> Result<()> {
+        target.load(&[]);
 
-        modified.ram[Memory::INDEX_PROGRAM_START as usize + 10] = 10;
-        modified.pc = 20;
-        modified.vram[0][0] = true;
-
-        modified.load(&[]);
-
-        assert_eq!(modified, empty);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn increment_pc_increments() -> Result<()> {
-        let mut m = Memory::default();
+    #[rstest]
+    fn increment_pc_increments(mut target: Memory, mut result: Memory) -> Result<()> {
+        for _ in 0..3 {
+            target.increment_pc();
+        }
 
-        m.increment_pc();
-        m.increment_pc();
-        m.increment_pc();
+        result.pc += 2 * 3;
 
-        assert_eq!(m.pc, Memory::INDEX_PROGRAM_START + 6);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn advance_timer_decrements() -> Result<()> {
-        let mut m = Memory::default();
+    #[rstest]
+    fn advance_timer_decrements(mut target: Memory, mut result: Memory) -> Result<()> {
+        for _ in 0..3 {
+            target.advance_timer();
+        }
 
-        m.dt = 10;
-        m.st = 13;
+        result.dt -= 3;
+        result.st -= 3;
 
-        m.advance_timer();
-
-        assert_eq!(m.dt, 9);
-        assert_eq!(m.st, 12);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn advance_timer_doesnt_underflow_if_0() -> Result<()> {
-        let mut m = Memory::default();
+    #[rstest]
+    fn advance_timer_doesnt_underflow_if_0(mut target: Memory, mut result: Memory) -> Result<()> {
+        for _ in 0..100 {
+            target.advance_timer();
+        }
 
-        m.dt = 0;
-        m.st = 0;
+        result.dt = 0;
+        result.st = 0;
 
-        m.advance_timer();
-
-        assert_eq!(m.dt, 0);
-        assert_eq!(m.st, 0);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn clear_vram_resets() -> Result<()> {
-        let empty = Memory::default();
-        let mut modified = Memory::default();
-        modified
-            .vram
-            .iter_mut()
-            .for_each(|e| e.iter_mut().for_each(|e| *e = true));
-        modified.clear_vram();
+    #[rstest]
+    fn clear_vram_resets(mut target: Memory, mut result: Memory) -> Result<()> {
+        target.clear_vram();
 
-        assert_eq!(modified, empty);
+        result.vram = [[false; Memory::SIZE_DISPLAY_WIDTH]; Memory::SIZE_DISPLAY_HEIGHT];
 
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn clear_vram_doesnt_reset_others() -> Result<()> {
-        let mut m = Memory::default();
-        m.ram[500] = 50;
-        m.clear_vram();
+    #[rstest]
+    fn clear_works(
+        mut target: Memory,
+        #[with(Memory::default())] mut result: Memory,
+    ) -> Result<()> {
+        target.clear_memory();
 
-        assert_eq!(m.ram[500], 50);
-
-        Ok(())
-    }
-
-    #[test]
-    fn clear_works() -> Result<()> {
-        let empty = Memory::default();
-        let mut modified = Memory::default();
-        modified.ram[Memory::INDEX_PROGRAM_START as usize] = 0xFF;
-        modified
-            .vram
-            .iter_mut()
-            .for_each(|e| e.iter_mut().for_each(|e| *e = true));
-        modified.stack.push(0xFF);
-        modified.pc += 2;
-        modified.dt = 10;
-        modified.st = 20;
-        modified.i = 1;
-        modified.v.iter_mut().for_each(|e| *e = 5);
-        modified.clear_memory();
-
-        assert_eq!(modified, empty);
-
+        assert_eq!(target, result);
         Ok(())
     }
 }

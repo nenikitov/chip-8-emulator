@@ -52,7 +52,6 @@ impl Chip8 {
 }
 
 impl Chip8 {
-    // TODO(nenikitov): Add configuration parameter here
     pub fn new(config: Config) -> Self {
         Self {
             config,
@@ -140,6 +139,7 @@ impl Chip8 {
 
         if let State::WaitingForKey { vx } = self.state {
             self.memory.v[vx] = key;
+            self.state = State::Ready;
         }
 
         Ok(())
@@ -151,77 +151,137 @@ mod tests {
     use super::*;
 
     use eyre::Result;
+    use rstest::*;
     use similar_asserts::assert_eq;
 
-    // TODO(nenikitov): Use `rstest` here.
+    #[fixture]
+    fn target(#[default(Config::default())] config: Config) -> Chip8 {
+        let mut chip = Chip8::new(config);
 
-    #[test]
-    fn advance_instruction_ready() -> Result<()> {
-        let mut c = Chip8::default();
-
-        c.load(&[
+        chip.memory.ram[Memory::INDEX_PROGRAM_START as usize..][..4].copy_from_slice(&[
             0x61, 0x02, // Load 2 into register 1
-            0x71, 0x03, // Add 3 to register 1
+            0x71, 0x03, // Add 3 to it
         ]);
+        chip.memory.vram[0].iter_mut().for_each(|e| *e = true);
+        chip.memory.stack.push(Memory::INDEX_PROGRAM_START);
+        chip.memory.dt = 0;
+        chip.memory.st = 10;
+        chip.memory.i = 100;
+        chip.memory.v = [0, 1, 2, 3, 4, 5, 31, 59, 0, 1, 2, 3, 4, 5, 30, 60];
+        chip.memory.keys = [
+            true, false, true, false, true, false, true,
+            false, // First 8 are pressed and unpressed
+            false, false, false, false, false, false, false, false, // Last 8 are not pressed
+        ];
 
-        assert_eq!(c.memory.v[1], 0);
-        assert_eq!(c.memory.pc, Memory::INDEX_PROGRAM_START);
+        chip
+    }
 
-        c.advance_instruction()?;
+    #[fixture]
+    fn result(target: Chip8) -> Chip8 {
+        target.clone()
+    }
 
-        assert_eq!(c.memory.v[1], 2);
-        assert_eq!(c.memory.pc, Memory::INDEX_PROGRAM_START + 2);
+    #[rstest]
+    fn advance_instruction_ready(mut target: Chip8, mut result: Chip8) -> Result<()> {
+        target.advance_instruction()?;
+        target.advance_instruction()?;
 
-        c.advance_instruction()?;
+        result.memory.v[1] = 5;
+        result.memory.pc += 4;
 
-        assert_eq!(c.memory.v[1], 5);
-        assert_eq!(c.memory.pc, Memory::INDEX_PROGRAM_START + 4);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn advance_instruction_waiting_for_key() -> Result<()> {
-        let mut c = Chip8::default();
+    #[rstest]
+    fn advance_instruction_waiting_key(mut target: Chip8, mut result: Chip8) -> Result<()> {
+        target.state = State::WaitingForKey { vx: 0x0 };
+        target.advance_instruction()?;
+        target.advance_instruction()?;
 
-        c.state = State::WaitingForKey { vx: 0 };
+        result.state = State::WaitingForKey { vx: 0x0 };
 
-        c.load(&[
-            0x61, 0x02, // Load 2 into register 1
-            0x71, 0x03, // Add 3 to register 1
-        ]);
-
-        assert_eq!(c.memory.v[1], 0);
-        assert_eq!(c.memory.pc, Memory::INDEX_PROGRAM_START);
-
-        c.advance_instruction()?;
-
-        assert_eq!(c.memory.v[1], 0);
-        assert_eq!(c.memory.pc, Memory::INDEX_PROGRAM_START);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    #[test]
-    fn advance_instruction_waiting_dt() -> Result<()> {
-        let mut c = Chip8::default();
+    #[rstest]
+    fn advance_instruction_waiting_dt(mut target: Chip8, mut result: Chip8) -> Result<()> {
+        target.memory.dt = 10;
+        target.advance_instruction()?;
+        target.advance_instruction()?;
 
-        c.load(&[
-            0x61, 0x02, // Load 2 into register 1
-            0x71, 0x03, // Add 3 to register 1
-        ]);
-        c.memory.dt = 1;
+        result.memory.dt = 10;
 
-        assert_eq!(c.memory.v[1], 0);
-        assert_eq!(c.memory.pc, Memory::INDEX_PROGRAM_START);
-
-        c.advance_instruction()?;
-
-        assert_eq!(c.memory.v[1], 0);
-        assert_eq!(c.memory.pc, Memory::INDEX_PROGRAM_START);
-
+        assert_eq!(target, result);
         Ok(())
     }
 
-    // TODO(nenikitov): Test key pressing
+    #[rstest]
+    fn advance_timer(mut target: Chip8, mut result: Chip8) -> Result<()> {
+        target.memory.dt = 10;
+        for _ in 0..3 {
+            target.advance_timer();
+        }
+
+        result.memory.dt = 7;
+        result.memory.st -= 3;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn advance_timer_waiting_key(mut target: Chip8, mut result: Chip8) -> Result<()> {
+        target.memory.dt = 10;
+        target.state = State::WaitingForKey { vx: 0x0 };
+        for _ in 0..3 {
+            target.advance_timer();
+        }
+
+        result.state = State::WaitingForKey { vx: 0x0 };
+        result.memory.dt = 7;
+        result.memory.st -= 3;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn press_key(mut target: Chip8, mut result: Chip8) -> Result<()> {
+        target.press_key(0xF);
+
+        result.memory.keys[0xF] = true;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn unpress_key(mut target: Chip8, mut result: Chip8) -> Result<()> {
+        target.unpress_key(0x0);
+
+        result.memory.keys[0x0] = false;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn unpress_key_unblocks_machine_and_stores_pressed_key(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(0x0, 0x2)] key: u8,
+    ) -> Result<()> {
+        target.state = State::WaitingForKey { vx };
+        target.unpress_key(key);
+
+        result.memory.keys[key as usize] = false;
+        result.memory.v[vx] = key;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
 }

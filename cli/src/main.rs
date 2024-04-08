@@ -6,6 +6,7 @@ mod ui;
 mod waiter;
 
 use std::{
+    fs,
     sync::{Arc, Mutex},
     thread,
     time::Duration,
@@ -18,9 +19,13 @@ use waiter::Waiter;
 const INSTRUCTIONS_PER_SECOND: usize = 10;
 const FRAMES_PER_SECOND: usize = 60;
 
+const ROM_PATH: &str = "./roms/test_opcode.ch8";
+
 fn main() -> Result<(), i32> {
+    let rom = fs::read(ROM_PATH).map_err(|_| 2)?;
+
     let mut chip = Chip8::default();
-    chip.load(include_bytes!("../../roms/test_opcode.ch8"));
+    chip.load(&rom);
 
     let mut terminal = ui::start_ui().map_err(|_| 1)?;
     ui::panic_hook();
