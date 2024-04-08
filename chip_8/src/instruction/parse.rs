@@ -25,234 +25,157 @@ pub enum Instruction {
     ///
     /// * Opcode: `0nnn`
     /// * Mnemonic: `SYS addr`
-    System {
-        address: u16,
-    },
+    System { address: u16 },
     /// Jump to an instruction at address.
     ///
     /// * Opcode: `1nnn`
     /// * Mnemonic: `JP addr`
-    Jump {
-        address: u16,
-    },
+    Jump { address: u16 },
     /// Call a subroutine at address.
     ///
     /// * Opcode: `2nnn`
     /// * Mnemonic: `CALL addr`
-    SubroutineCall {
-        address: u16,
-    },
+    SubroutineCall { address: u16 },
     // Skip the next instruction if value in `Vx` equals to a given value.
     ///
     /// * Opcode: `3xnn`
     /// * Mnemonic: `SE Vx byte`
-    SkipIfVxEqualsValue {
-        vx: usize,
-        value: u8,
-    },
+    SkipIfVxEqualsValue { vx: usize, value: u8 },
     // Skip the next instruction if value in `Vx` does not equal to a given value.
     ///
     /// * Opcode: `4xnn`
     /// * Mnemonic: `SNE Vx byte`
-    SkipIfVxNotEqualsValue {
-        vx: usize,
-        value: u8,
-    },
+    SkipIfVxNotEqualsValue { vx: usize, value: u8 },
     // Skip the next instruction if value in `Vx` equals to value in `Vy`.
     ///
     /// * Opcode: `5xy0`
     /// * Mnemonic: `SE Vx Vy`
-    SkipIfVxEqualsVy {
-        vx: usize,
-        vy: usize,
-    },
+    SkipIfVxEqualsVy { vx: usize, vy: usize },
     /// Load a value into `Vx`.
     ///
     /// * Opcode: `6xnn`
     /// * Mnemonic: `LD Vx byte`
-    SetVxWithValue {
-        vx: usize,
-        value: u8,
-    },
+    SetVxWithValue { vx: usize, value: u8 },
     /// Add a value and store the result to `Vx`.
     ///
     /// * Opcode: `7xnn`
     /// * Mnemonic: `ADD Vx byte`
-    AddVxValue {
-        vx: usize,
-        value: u8,
-    },
+    AddVxValue { vx: usize, value: u8 },
     /// Load a value from `Vy` into `Vx`.
     ///
     /// * Opcode: `8xy0`
     /// * Mnemonic: `LD Vx Vy`
-    SetVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
+    SetVxWithVy { vx: usize, vy: usize },
     /// Compute bitwise OR between `Vx` and `Vy` and store in `Vx`.
     ///
     /// * Opcode: `8xy1`
     /// * Mnemonic: `OR Vx Vy`
-    OrVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
+    OrVxWithVy { vx: usize, vy: usize },
     /// Compute bitwise AND between `Vx` and `Vy` and store in `Vx`.
     ///
     /// * Opcode: `8xy2`
     /// * Mnemonic: `AND Vx Vy`
-    AndVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
+    AndVxWithVy { vx: usize, vy: usize },
     /// Compute bitwise XOR between `Vx` and `Vy` and store in `Vx`.
     ///
     /// * Opcode: `8xy3`
     /// * Mnemonic: `XOR Vx Vy`
-    XorVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
+    XorVxWithVy { vx: usize, vy: usize },
     /// Add `Vx` and `Vy` and store in `Vx`.
     /// Store carry flag into `VF`.
     ///
     /// * Opcode: `8xy4`
     /// * Mnemonic: `ADD Vx Vy`
-    AddVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
+    AddVxWithVy { vx: usize, vy: usize },
     /// Subtract `Vx` and `Vy` and store in `Vx`.
     /// Store the opposite of a carry flag into `VF`.
     ///
     /// * Opcode: `8xy5`
     /// * Mnemonic: `SUB Vx Vy`
-    SubtractVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
+    SubtractVxWithVy { vx: usize, vy: usize },
     /// Shift 1 bit to the right and store a value in `Vx`.
     /// Store shifted bit into `VF`.
     /// **COMPATIBILITY:** Optionally copies Vy to Vx before shift.
     ///
     /// * Opcode: `8xy5`
     /// * Mnemonic: `SHR Vx Vy`
-    Shift1RightVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
+    Shift1RightVxWithVy { vx: usize, vy: usize },
     /// Subtract `Vy` and `Vx` and store in `Vx`.
     /// Store the opposite of a carry flag into `VF`.
     ///
     /// * Opcode: `8xy7`
     /// * Mnemonic: `SUBN Vx Vy`
-    SubtractVyWithVx {
-        vx: usize,
-        vy: usize,
-    },
+    SubtractVyWithVx { vx: usize, vy: usize },
     /// Shift 1 bit to the left and store a value in `Vx`.
     /// Store shifted bit into `VF`.
     /// **COMPATIBILITY:** Optionally copies Vy to Vx before shift.
     ///
     /// * Opcode: `8xyE`
     /// * Mnemonic: `SHL Vx Vy`
-    Shift1LeftVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
+    Shift1LeftVxWithVy { vx: usize, vy: usize },
     // Skip the next instruction if value in a `Vx` does not equal to value in `Vy`.
     ///
     /// * Opcode: `9xy0`
     /// * Mnemonic: `SNE Vx Vy`
-    SkipIfVxNotEqualsVy {
-        vx: usize,
-        vy: usize,
-    },
+    SkipIfVxNotEqualsVy { vx: usize, vy: usize },
     /// Load a value into `I`.
     ///
     /// * Opcode: `Annn`
     /// * Mnemonic: `LD I addr`
-    SetIWithValue {
-        value: u16,
-    },
+    SetIWithValue { value: u16 },
     /// Jump to the offset + value in `V0`.
     /// **COMPATIBILITY:** Optionally use `Vx` instead of `V0`.
     ///
     /// * Opcode: `Bnnn`
     /// * Mnemonic: `JP V0 + addr` or `JP Vx + addr`
-    JumpWithOffset {
-        vx: usize,
-        address: u16,
-    },
+    JumpWithOffset { vx: usize, address: u16 },
     /// Generate a random value, perform bitwise AND with a given value and put into `Vx`.
     ///
     /// * Opcode: `Cxnn`
     /// * Mnemonic: `RND Vx byte`
-    SetVxWithRandom {
-        vx: usize,
-        value: u8,
-    },
+    SetVxWithRandom { vx: usize, value: u8 },
     /// Display a sprite from `I` with specified height in the coordinates from `Vx` and `Vy`.
     ///
     /// * Opcode: `Dxyn`
     /// * Mnemonic: `DRW Vx Vy height`
-    DisplayDraw {
-        vx: usize,
-        vy: usize,
-        height: u8,
-    },
+    DisplayDraw { vx: usize, vy: usize, height: u8 },
     /// Skip the next instruction if a key stored in `Vx` is pressed.
     ///
     /// * Opcode: `Ex9E`
     /// * Mnemonic: `SKP Vx`
-    SkipIfVxKeyPressed {
-        vx: usize,
-    },
+    SkipIfVxKeyPressed { vx: usize },
     /// Skip the next instruction if a key stored in `Vx` is not pressed.
     ///
     /// * Opcode: `ExA1`
     /// * Mnemonic: `SKNP Vx`
-    SkipIfVxKeyNotPressed {
-        vx: usize,
-    },
+    SkipIfVxKeyNotPressed { vx: usize },
     /// Load a value from `DT` into `Vx`.
     ///
     /// * Opcode: `Fx07`
     /// * Mnemonic: `LD Vx DT`
-    SetVxWithDt {
-        vx: usize,
-    },
+    SetVxWithDt { vx: usize },
     /// Stop execution and wait until a key is pressed.
     /// A key that was pressed is stored in `Vx`.
     ///
     /// * Opcode: `Fx0A`
     /// * Mnemonic: `LD Vx key`
-    SetVxWithNextPressedKeyBlocking {
-        vx: usize,
-    },
+    SetVxWithNextPressedKeyBlocking { vx: usize },
     /// Load a value from `Vx` into `DT`.
     ///
     /// * Opcode: `Fx15`
     /// * Mnemonic: `LD DT Vx`
-    SetDtWithVx {
-        vx: usize,
-    },
+    SetDtWithVx { vx: usize },
     /// Load a value from `Vx` into `ST`.
     ///
     /// * Opcode: `Fx18`
     /// * Mnemonic: `LD ST Vx`
-    SetStWithVx {
-        vx: usize,
-    },
+    SetStWithVx { vx: usize },
     /// Add `I` and `Vx` and store in `I`.
     /// **COMPATIBILITY:** Optionally stores if resulting memory is outside in `VF`.
     ///
     /// * Opcode: `Fx1E`
     /// * Mnemonic: `ADD I Vx`
-    AddIWithVx {
-        vx: usize,
-    },
+    AddIWithVx { vx: usize },
 }
 
 impl TryFrom<Opcode> for Instruction {

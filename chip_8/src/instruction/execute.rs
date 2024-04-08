@@ -1018,5 +1018,4 @@ mod tests {
         assert_eq!(target, result);
         Ok(())
     }
-
 }
