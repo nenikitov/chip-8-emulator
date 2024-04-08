@@ -33,6 +33,7 @@ pub(crate) enum State {
     },
 }
 
+/// Main structure used to emulate CHIP-8.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Chip8 {
     pub(crate) config: Config,

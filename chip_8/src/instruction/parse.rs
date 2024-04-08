@@ -10,148 +10,247 @@ pub enum ParseError {
 /// CPU instruction with required arguments.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Instruction {
+    /// Clear the display (VRAM).
+    ///
+    /// * Opcode: `00E0`
+    /// * Mnemonic: `CLS`
+    DisplayClear,
+    /// Return from a subroutine.
+    ///
+    /// * Opcode: `00EE`
+    /// * Mnemonic: `RET`
+    SubroutineReturn,
     /// Execute machine code routine at address.
+    /// **WARNING:** Is unsupported.
+    ///
+    /// * Opcode: `0nnn`
+    /// * Mnemonic: `SYS addr`
     System {
         address: u16,
     },
-    /// Clear the display (VRAM).
-    DisplayClear,
     /// Jump to an instruction at address.
+    ///
+    /// * Opcode: `1nnn`
+    /// * Mnemonic: `JP addr`
     Jump {
         address: u16,
     },
-    /// Load a value into register Vx.
+    /// Call a subroutine at address.
+    ///
+    /// * Opcode: `2nnn`
+    /// * Mnemonic: `CALL addr`
+    SubroutineCall {
+        address: u16,
+    },
+    // Skip the next instruction if value in `Vx` equals to a given value.
+    ///
+    /// * Opcode: `3xnn`
+    /// * Mnemonic: `SE Vx byte`
+    SkipIfVxEqualsValue {
+        vx: usize,
+        value: u8,
+    },
+    // Skip the next instruction if value in `Vx` does not equal to a given value.
+    ///
+    /// * Opcode: `4xnn`
+    /// * Mnemonic: `SNE Vx byte`
+    SkipIfVxNotEqualsValue {
+        vx: usize,
+        value: u8,
+    },
+    // Skip the next instruction if value in `Vx` equals to value in `Vy`.
+    ///
+    /// * Opcode: `5xy0`
+    /// * Mnemonic: `SE Vx Vy`
+    SkipIfVxEqualsVy {
+        vx: usize,
+        vy: usize,
+    },
+    /// Load a value into `Vx`.
+    ///
+    /// * Opcode: `6xnn`
+    /// * Mnemonic: `LD Vx byte`
     SetVxWithValue {
         vx: usize,
         value: u8,
     },
-    /// Add a value to register Vx.
+    /// Add a value and store the result to `Vx`.
+    ///
+    /// * Opcode: `7xnn`
+    /// * Mnemonic: `ADD Vx byte`
     AddVxValue {
         vx: usize,
         value: u8,
     },
-    /// Load a value into register I.
+    /// Load a value from `Vy` into `Vx`.
+    ///
+    /// * Opcode: `8xy0`
+    /// * Mnemonic: `LD Vx Vy`
+    SetVxWithVy {
+        vx: usize,
+        vy: usize,
+    },
+    /// Compute bitwise OR between `Vx` and `Vy` and store in `Vx`.
+    ///
+    /// * Opcode: `8xy1`
+    /// * Mnemonic: `OR Vx Vy`
+    OrVxWithVy {
+        vx: usize,
+        vy: usize,
+    },
+    /// Compute bitwise AND between `Vx` and `Vy` and store in `Vx`.
+    ///
+    /// * Opcode: `8xy2`
+    /// * Mnemonic: `AND Vx Vy`
+    AndVxWithVy {
+        vx: usize,
+        vy: usize,
+    },
+    /// Compute bitwise XOR between `Vx` and `Vy` and store in `Vx`.
+    ///
+    /// * Opcode: `8xy3`
+    /// * Mnemonic: `XOR Vx Vy`
+    XorVxWithVy {
+        vx: usize,
+        vy: usize,
+    },
+    /// Add `Vx` and `Vy` and store in `Vx`.
+    /// Store carry flag into `VF`.
+    ///
+    /// * Opcode: `8xy4`
+    /// * Mnemonic: `ADD Vx Vy`
+    AddVxWithVy {
+        vx: usize,
+        vy: usize,
+    },
+    /// Subtract `Vx` and `Vy` and store in `Vx`.
+    /// Store the opposite of a carry flag into `VF`.
+    ///
+    /// * Opcode: `8xy5`
+    /// * Mnemonic: `SUB Vx Vy`
+    SubtractVxWithVy {
+        vx: usize,
+        vy: usize,
+    },
+    /// Shift 1 bit to the right and store a value in `Vx`.
+    /// Store shifted bit into `VF`.
+    /// **COMPATIBILITY:** Optionally copies Vy to Vx before shift.
+    ///
+    /// * Opcode: `8xy5`
+    /// * Mnemonic: `SHR Vx Vy`
+    Shift1RightVxWithVy {
+        vx: usize,
+        vy: usize,
+    },
+    /// Subtract `Vy` and `Vx` and store in `Vx`.
+    /// Store the opposite of a carry flag into `VF`.
+    ///
+    /// * Opcode: `8xy7`
+    /// * Mnemonic: `SUBN Vx Vy`
+    SubtractVyWithVx {
+        vx: usize,
+        vy: usize,
+    },
+    /// Shift 1 bit to the left and store a value in `Vx`.
+    /// Store shifted bit into `VF`.
+    /// **COMPATIBILITY:** Optionally copies Vy to Vx before shift.
+    ///
+    /// * Opcode: `8xyE`
+    /// * Mnemonic: `SHL Vx Vy`
+    Shift1LeftVxWithVy {
+        vx: usize,
+        vy: usize,
+    },
+    // Skip the next instruction if value in a `Vx` does not equal to value in `Vy`.
+    ///
+    /// * Opcode: `9xy0`
+    /// * Mnemonic: `SNE Vx Vy`
+    SkipIfVxNotEqualsVy {
+        vx: usize,
+        vy: usize,
+    },
+    /// Load a value into `I`.
+    ///
+    /// * Opcode: `Annn`
+    /// * Mnemonic: `LD I addr`
     SetIWithValue {
         value: u16,
     },
-    /// Display a sprite from register I with specified height in the coordinates from registers Vx and Vy.
+    /// Jump to the offset + value in `V0`.
+    /// **COMPATIBILITY:** Optionally use `Vx` instead of `V0`.
+    ///
+    /// * Opcode: `Bnnn`
+    /// * Mnemonic: `JP V0 + addr` or `JP Vx + addr`
+    JumpWithOffset {
+        vx: usize,
+        address: u16,
+    },
+    /// Generate a random value, perform bitwise AND with a given value and put into `Vx`.
+    ///
+    /// * Opcode: `Cxnn`
+    /// * Mnemonic: `RND Vx byte`
+    SetVxWithRandom {
+        vx: usize,
+        value: u8,
+    },
+    /// Display a sprite from `I` with specified height in the coordinates from `Vx` and `Vy`.
+    ///
+    /// * Opcode: `Dxyn`
+    /// * Mnemonic: `DRW Vx Vy height`
     DisplayDraw {
         vx: usize,
         vy: usize,
         height: u8,
     },
-    /// Return from a subroutine.
-    SubroutineReturn,
-    /// Call a subroutine at address.
-    SubroutineCall {
-        address: u16,
-    },
-    // Skip the next instruction if value in a register Vx equals to a given value.
-    SkipIfVxEqualsValue {
-        vx: usize,
-        value: u8,
-    },
-    // Skip the next instruction if value in a register Vx does not equal to a given value.
-    SkipIfVxNotEqualsValue {
-        vx: usize,
-        value: u8,
-    },
-    // Skip the next instruction if value in a register Vx equals to value in register Vy.
-    SkipIfVxEqualsVy {
-        vx: usize,
-        vy: usize,
-    },
-    // Skip the next instruction if value in a register Vx does not equal to value in register Vy.
-    SkipIfVxNotEqualsVy {
-        vx: usize,
-        vy: usize,
-    },
-    /// Load a value into register Vx from Vy.
-    SetVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
-    /// Load a value into register Vx bitwise OR between Vx and Vy.
-    OrVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
-    /// Load a value into register Vx bitwise AND between Vx and Vy.
-    AndVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
-    /// Load a value into register Vx bitwise XOR between Vx and Vy.
-    XorVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
-    /// Load a value into register Vx the sum Vx and Vy and set the carry flag.
-    AddVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
-    /// Load a value into register Vx the difference Vx between and Vy and set the carry flag.
-    SubtractVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
-    /// Load a value into register Vx the difference between Vy and Vx and set the carry flag.
-    SubtractVyWithVx {
-        vx: usize,
-        vy: usize,
-    },
-    /// Shift a value in a register Vx by 1 to the right and store the shifted out bit.
-    /// **COMPATIBILITY:** Optionally copies Vy to Vx before shift.
-    Shift1RightVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
-    /// Shift a value in a register Vx by 1 to the left and store the shifted out bit.
-    /// **COMPATIBILITY:** Optionally copies Vy to Vx before shift.
-    Shift1LeftVxWithVy {
-        vx: usize,
-        vy: usize,
-    },
-    /// Jump to the offset + what is stored in V0.
-    /// **COMPATIBILITY:** Optionally use Vx instead of V0.
-    JumpWithOffset {
-        vx: usize,
-        address: u16,
-    },
-    /// Generate a random value AND with a given value and put into register Vx.
-    SetVxWithRandom {
-        vx: usize,
-        value: u8,
-    },
-    // Skip the next instruction if a key stored in register Vx is pressed.
+    /// Skip the next instruction if a key stored in `Vx` is pressed.
+    ///
+    /// * Opcode: `Ex9E`
+    /// * Mnemonic: `SKP Vx`
     SkipIfVxKeyPressed {
         vx: usize,
     },
-    // Skip the next instruction if a key stored in register Vx is not pressed.
+    /// Skip the next instruction if a key stored in `Vx` is not pressed.
+    ///
+    /// * Opcode: `ExA1`
+    /// * Mnemonic: `SKNP Vx`
     SkipIfVxKeyNotPressed {
         vx: usize,
     },
-    // Load a value from delay timer into Vx.
+    /// Load a value from `DT` into `Vx`.
+    ///
+    /// * Opcode: `Fx07`
+    /// * Mnemonic: `LD Vx DT`
     SetVxWithDt {
         vx: usize,
     },
-    // Load a value from Vx into delay timer.
+    /// Stop execution and wait until a key is pressed.
+    /// A key that was pressed is stored in `Vx`.
+    ///
+    /// * Opcode: `Fx0A`
+    /// * Mnemonic: `LD Vx key`
+    SetVxWithNextPressedKeyBlocking {
+        vx: usize,
+    },
+    /// Load a value from `Vx` into `DT`.
+    ///
+    /// * Opcode: `Fx15`
+    /// * Mnemonic: `LD DT Vx`
     SetDtWithVx {
         vx: usize,
     },
-    // Load a value from Vx into sound timer.
+    /// Load a value from `Vx` into `ST`.
+    ///
+    /// * Opcode: `Fx18`
+    /// * Mnemonic: `LD ST Vx`
     SetStWithVx {
         vx: usize,
     },
-    // Load the sum of I and Vx into I.
-    // **COMPATIBILITY:** Optionally stores if resulting memory is outside in carry flag.
+    /// Add `I` and `Vx` and store in `I`.
+    /// **COMPATIBILITY:** Optionally stores if resulting memory is outside in `VF`.
+    ///
+    /// * Opcode: `Fx1E`
+    /// * Mnemonic: `ADD I Vx`
     AddIWithVx {
-        vx: usize,
-    },
-    // Stop execution and wait until a key is pressed.
-    // A key that was pressed is stored in Vx.
-    SetVxWithNextPressedKeyBlocking {
         vx: usize,
     },
 }
