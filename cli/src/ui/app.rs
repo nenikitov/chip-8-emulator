@@ -138,7 +138,7 @@ impl<'a> Widget for AppWidget<'a> {
         };
 
         let keys = LayoutAlign {
-            child: &Keypad { app: &self.app },
+            child: &Keypad { app: self.app },
             horizontal: Alignment::Left,
             vertical: Alignment::Center,
         };
@@ -150,7 +150,7 @@ impl<'a> Widget for AppWidget<'a> {
             vertical: Alignment::Center,
         };
         let memory = LayoutAlign {
-            child: &MemoryScreen { app: &self.app },
+            child: &MemoryScreen { app: self.app },
             horizontal: Alignment::Right,
             vertical: Alignment::Center,
         };

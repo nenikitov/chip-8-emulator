@@ -25,15 +25,40 @@ impl ExecuteInstruction for Chip8 {
         let config = &self.config;
 
         match *instruction {
+            Instruction::DisplayClear => {
+                memory.clear_vram();
+            }
+            Instruction::SubroutineReturn => {
+                if let Some(pc) = memory.stack.pop() {
+                    memory.pc = pc;
+                } else {
+                    todo!("Figure out what to do on the last return");
+                }
+            }
             Instruction::System { address: _ } => {
                 return Err(ExecuteError::UnsupportedInstruction(*instruction))
             }
-            Instruction::DisplayClear => memory
-                .vram
-                .iter_mut()
-                .for_each(|e| e.iter_mut().for_each(|e| *e = false)),
             Instruction::Jump { address } => {
                 memory.pc = address;
+            }
+            Instruction::SubroutineCall { address } => {
+                memory.stack.push(memory.pc);
+                memory.pc = address;
+            }
+            Instruction::SkipIfVxEqualsValue { vx, value } => {
+                if memory.v[vx] == value {
+                    memory.increment_pc();
+                }
+            }
+            Instruction::SkipIfVxNotEqualsValue { vx, value } => {
+                if memory.v[vx] != value {
+                    memory.increment_pc();
+                }
+            }
+            Instruction::SkipIfVxEqualsVy { vx, vy } => {
+                if memory.v[vx] == memory.v[vy] {
+                    memory.increment_pc();
+                }
             }
             Instruction::SetVxWithValue { vx, value } => {
                 memory.v[vx] = value;
@@ -41,8 +66,67 @@ impl ExecuteInstruction for Chip8 {
             Instruction::AddVxValue { vx, value } => {
                 memory.v[vx] = memory.v[vx].wrapping_add(value);
             }
+            Instruction::SetVxWithVy { vx, vy } => {
+                memory.v[vx] = memory.v[vy];
+            }
+            Instruction::OrVxWithVy { vx, vy } => {
+                memory.v[vx] |= memory.v[vy];
+            }
+            Instruction::AndVxWithVy { vx, vy } => {
+                memory.v[vx] &= memory.v[vy];
+            }
+            Instruction::XorVxWithVy { vx, vy } => {
+                memory.v[vx] ^= memory.v[vy];
+            }
+            Instruction::AddVxWithVy { vx, vy } => {
+                let (result, overflow) = memory.v[vx].overflowing_add(memory.v[vy]);
+                memory.v[vx] = result;
+                memory.v[Memory::INDEX_FLAG_REGISTER] = overflow.into();
+            }
+            Instruction::SubtractVxWithVy { vx, vy } => {
+                let (result, underflow) = memory.v[vx].overflowing_sub(memory.v[vy]);
+                memory.v[vx] = result;
+                memory.v[Memory::INDEX_FLAG_REGISTER] = (!underflow).into();
+            }
+            Instruction::Shift1RightVxWithVy { vx, vy } => {
+                if !config.shift_ignores_vy {
+                    memory.v[vx] = memory.v[vy];
+                }
+
+                let discarded = memory.v[vx] & 0b00000001;
+
+                memory.v[vx] >>= 1;
+                memory.v[Memory::INDEX_FLAG_REGISTER] = discarded;
+            }
+            Instruction::SubtractVyWithVx { vx, vy } => {
+                let (result, underflow) = memory.v[vy].overflowing_sub(memory.v[vx]);
+                memory.v[vx] = result;
+                memory.v[Memory::INDEX_FLAG_REGISTER] = (!underflow).into();
+            }
+            Instruction::Shift1LeftVxWithVy { vx, vy } => {
+                if !config.shift_ignores_vy {
+                    memory.v[vx] = memory.v[vy];
+                }
+
+                let discarded = (memory.v[vx] & 0b10000000) >> 7;
+
+                memory.v[vx] <<= 1;
+                memory.v[Memory::INDEX_FLAG_REGISTER] = discarded;
+            }
+            Instruction::SkipIfVxNotEqualsVy { vx, vy } => {
+                if memory.v[vx] != memory.v[vy] {
+                    memory.increment_pc();
+                }
+            }
             Instruction::SetIWithValue { value } => {
                 memory.i = value;
+            }
+            Instruction::JumpWithOffset { vx, address: value } => {
+                let register_offset = memory.v[if config.jump_reads_from_vx { vx } else { 0 }];
+                memory.pc = value + register_offset as u16;
+            }
+            Instruction::SetVxWithRandom { vx, value } => {
+                memory.v[vx] = rand::random::<u8>() & value;
             }
             Instruction::DisplayDraw { vx, vy, height } => {
                 let x = memory.v[vx] % Memory::SIZE_DISPLAY_WIDTH as u8;
@@ -70,91 +154,6 @@ impl ExecuteInstruction for Chip8 {
                     }
                 }
             }
-            Instruction::SubroutineReturn => {
-                if let Some(pc) = memory.stack.pop() {
-                    memory.pc = pc;
-                } else {
-                    todo!("Figure out what to do on the last return");
-                }
-            }
-            Instruction::SubroutineCall { address } => {
-                memory.stack.push(memory.pc);
-                memory.pc = address;
-            }
-            Instruction::SkipIfVxEqualsValue { vx, value } => {
-                if memory.v[vx] == value {
-                    memory.increment_pc();
-                }
-            }
-            Instruction::SkipIfVxNotEqualsValue { vx, value } => {
-                if memory.v[vx] != value {
-                    memory.increment_pc();
-                }
-            }
-            Instruction::SkipIfVxEqualsVy { vx, vy } => {
-                if memory.v[vx] == memory.v[vy] {
-                    memory.increment_pc();
-                }
-            }
-            Instruction::SkipIfVxNotEqualsVy { vx, vy } => {
-                if memory.v[vx] != memory.v[vy] {
-                    memory.increment_pc();
-                }
-            }
-            Instruction::SetVxWithVy { vx, vy } => {
-                memory.v[vx] = memory.v[vy];
-            }
-            Instruction::OrVxWithVy { vx, vy } => {
-                memory.v[vx] |= memory.v[vy];
-            }
-            Instruction::AndVxWithVy { vx, vy } => {
-                memory.v[vx] &= memory.v[vy];
-            }
-            Instruction::XorVxWithVy { vx, vy } => {
-                memory.v[vx] ^= memory.v[vy];
-            }
-            Instruction::AddVxWithVy { vx, vy } => {
-                let (result, overflow) = memory.v[vx].overflowing_add(memory.v[vy]);
-                memory.v[vx] = result;
-                memory.v[Memory::INDEX_FLAG_REGISTER] = overflow.into();
-            }
-            Instruction::SubtractVxWithVy { vx, vy } => {
-                let (result, underflow) = memory.v[vx].overflowing_sub(memory.v[vy]);
-                memory.v[vx] = result;
-                memory.v[Memory::INDEX_FLAG_REGISTER] = (!underflow).into();
-            }
-            Instruction::SubtractVyWithVx { vx, vy } => {
-                let (result, underflow) = memory.v[vy].overflowing_sub(memory.v[vx]);
-                memory.v[vx] = result;
-                memory.v[Memory::INDEX_FLAG_REGISTER] = (!underflow).into();
-            }
-            Instruction::Shift1RightVxWithVy { vx, vy } => {
-                if !config.shift_ignores_vy {
-                    memory.v[vx] = memory.v[vy];
-                }
-
-                let discarded = memory.v[vx] & 0b00000001;
-
-                memory.v[vx] >>= 1;
-                memory.v[Memory::INDEX_FLAG_REGISTER] = discarded;
-            }
-            Instruction::Shift1LeftVxWithVy { vx, vy } => {
-                if !config.shift_ignores_vy {
-                    memory.v[vx] = memory.v[vy];
-                }
-
-                let discarded = (memory.v[vx] & 0b10000000) >> 7;
-
-                memory.v[vx] <<= 1;
-                memory.v[Memory::INDEX_FLAG_REGISTER] = discarded;
-            }
-            Instruction::JumpWithOffset { vx, address: value } => {
-                let register_offset = memory.v[if config.jump_reads_from_vx { vx } else { 0 }];
-                memory.pc = value + register_offset as u16;
-            }
-            Instruction::SetVxWithRandom { vx, value } => {
-                memory.v[vx] = rand::random::<u8>() & value;
-            }
             Instruction::SkipIfVxKeyPressed { vx } => {
                 if let Some(&key) = memory.keys.get(memory.v[vx] as usize) {
                     if key {
@@ -176,6 +175,9 @@ impl ExecuteInstruction for Chip8 {
             Instruction::SetVxWithDt { vx } => {
                 memory.v[vx] = memory.dt;
             }
+            Instruction::SetVxWithNextPressedKeyBlocking { vx } => {
+                self.state = State::WaitingForKey { vx };
+            }
             Instruction::SetDtWithVx { vx } => {
                 memory.dt = memory.v[vx];
             }
@@ -188,9 +190,6 @@ impl ExecuteInstruction for Chip8 {
                 if self.config.add_to_index_stores_overflow && memory.i >= 0x1000 {
                     memory.v[Memory::INDEX_FLAG_REGISTER] = 1;
                 }
-            }
-            Instruction::SetVxWithNextPressedKeyBlocking { vx } => {
-                self.state = State::WaitingForKey { vx };
             }
         };
 
@@ -235,6 +234,50 @@ mod tests {
     }
 
     #[rstest]
+    fn execute_display_clear(mut target: Chip8, mut result: Chip8) -> Result<()> {
+        target.execute(&Instruction::DisplayClear)?;
+
+        result.memory.vram = [[false; Memory::SIZE_DISPLAY_WIDTH]; Memory::SIZE_DISPLAY_HEIGHT];
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_subroutine_return_once(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0x123, 0x234)] address_1: u16,
+        #[values(0x123, 0x234)] address_2: u16,
+    ) -> Result<()> {
+        target.execute(&Instruction::SubroutineCall { address: address_1 })?;
+        target.execute(&Instruction::SubroutineCall { address: address_2 })?;
+        target.execute(&Instruction::SubroutineReturn)?;
+
+        result.memory.stack.push(Memory::INDEX_PROGRAM_START);
+        result.memory.pc = address_1;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_subroutine_return_twice(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0x123, 0x234)] address_1: u16,
+        #[values(0x123, 0x234)] address_2: u16,
+    ) -> Result<()> {
+        target.execute(&Instruction::SubroutineCall { address: address_1 })?;
+        target.execute(&Instruction::SubroutineCall { address: address_2 })?;
+        target.execute(&Instruction::SubroutineReturn)?;
+        target.execute(&Instruction::SubroutineReturn)?;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
     fn execute_system_unsupported(
         mut target: Chip8,
         mut result: Chip8,
@@ -250,16 +293,6 @@ mod tests {
     }
 
     #[rstest]
-    fn execute_display_clear(mut target: Chip8, mut result: Chip8) -> Result<()> {
-        target.execute(&Instruction::DisplayClear)?;
-
-        result.memory.vram = [[false; Memory::SIZE_DISPLAY_WIDTH]; Memory::SIZE_DISPLAY_HEIGHT];
-
-        assert_eq!(target, result);
-        Ok(())
-    }
-
-    #[rstest]
     fn execute_jump(
         mut target: Chip8,
         mut result: Chip8,
@@ -268,125 +301,6 @@ mod tests {
         target.execute(&Instruction::Jump { address })?;
 
         result.memory.pc = address;
-
-        assert_eq!(target, result);
-        Ok(())
-    }
-
-    #[rstest]
-    fn execute_set_vx_with_value(
-        mut target: Chip8,
-        mut result: Chip8,
-        #[values(1, 2)] vx: usize,
-        #[values(0x12, 0x23)] value: u8,
-    ) -> Result<()> {
-        target.execute(&Instruction::SetVxWithValue { vx, value })?;
-
-        result.memory.v[vx] = value;
-
-        assert_eq!(target, result);
-        Ok(())
-    }
-
-    #[rstest]
-    fn execute_add_vx_value(
-        mut target: Chip8,
-        mut result: Chip8,
-        #[values(1, 2)] vx: usize,
-        #[values(0x12, 0x23)] value: u8,
-    ) -> Result<()> {
-        target.execute(&Instruction::AddVxValue { vx, value })?;
-
-        result.memory.v[vx] += value;
-
-        assert_eq!(target, result);
-        Ok(())
-    }
-
-    #[rstest]
-    fn execute_add_vx_value_overflow(
-        mut target: Chip8,
-        mut result: Chip8,
-        #[values(1, 2)] vx: usize,
-    ) -> Result<()> {
-        target.execute(&Instruction::AddVxValue { vx, value: 255 })?;
-
-        result.memory.v[vx] -= 1;
-
-        assert_eq!(target, result);
-        Ok(())
-    }
-
-    #[rstest]
-    fn execute_set_i_with_value(
-        mut target: Chip8,
-        mut result: Chip8,
-        #[values(0x123, 0x234)] value: u16,
-    ) -> Result<()> {
-        target.execute(&Instruction::SetIWithValue { value })?;
-
-        result.memory.i = value;
-
-        assert_eq!(target, result);
-        Ok(())
-    }
-
-    #[rstest]
-    fn execute_display_draw(
-        mut target: Chip8,
-        mut result: Chip8,
-        #[values(2, 3, 7)] vx: usize,
-        #[values(3, 3, 6)] vy: usize,
-    ) -> Result<()> {
-        let x = target.memory.v[vx] as usize;
-        let y = target.memory.v[vy] as usize;
-        let width = usize::min(8, Memory::SIZE_DISPLAY_WIDTH - x);
-
-        target.memory.ram[target.memory.i as usize + 0] = 0b10111111;
-        target.memory.ram[target.memory.i as usize + 1] = 0b01001001;
-
-        target.execute(&Instruction::DisplayDraw { vx, vy, height: 2 })?;
-
-        result.memory.ram[result.memory.i as usize + 0] = 0b10111111;
-        result.memory.ram[result.memory.i as usize + 1] = 0b01001001;
-        result.memory.vram[y][x..][..width]
-            .copy_from_slice(&[true, false, true, true, true, true, true, true][..width]);
-        if y + 1 < Memory::SIZE_DISPLAY_HEIGHT {
-            result.memory.vram[y + 1][x..][..width]
-                .copy_from_slice(&[false, true, false, false, true, false, false, true][..width]);
-        }
-        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 0;
-
-        assert_eq!(target, result);
-        Ok(())
-    }
-
-    #[rstest]
-    fn execute_display_draw_overdraw(
-        mut target: Chip8,
-        mut result: Chip8,
-        #[values(2, 3, 7)] vx: usize,
-        #[values(3, 3, 6)] vy: usize,
-    ) -> Result<()> {
-        let x = target.memory.v[vx] as usize;
-        let y = target.memory.v[vy] as usize;
-        let width = usize::min(8, Memory::SIZE_DISPLAY_WIDTH - x);
-
-        target.memory.ram[target.memory.i as usize + 0] = 0b10111111;
-        target.memory.ram[target.memory.i as usize + 1] = 0b01001001;
-        target.memory.vram[y][x] = true;
-
-        target.execute(&Instruction::DisplayDraw { vx, vy, height: 2 })?;
-
-        result.memory.ram[result.memory.i as usize + 0] = 0b10111111;
-        result.memory.ram[result.memory.i as usize + 1] = 0b01001001;
-        result.memory.vram[y][x..][..width]
-            .copy_from_slice(&[false, false, true, true, true, true, true, true][..width]);
-        if y + 1 < Memory::SIZE_DISPLAY_HEIGHT {
-            result.memory.vram[y + 1][x..][..width]
-                .copy_from_slice(&[false, true, false, false, true, false, false, true][..width]);
-        }
-        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 1;
 
         assert_eq!(target, result);
         Ok(())
@@ -422,40 +336,6 @@ mod tests {
             .stack
             .append(&mut vec![Memory::INDEX_PROGRAM_START, address_1]);
         result.memory.pc = address_2;
-
-        assert_eq!(target, result);
-        Ok(())
-    }
-
-    #[rstest]
-    fn execute_subroutine_return_once(
-        mut target: Chip8,
-        mut result: Chip8,
-        #[values(0x123, 0x234)] address_1: u16,
-        #[values(0x123, 0x234)] address_2: u16,
-    ) -> Result<()> {
-        target.execute(&Instruction::SubroutineCall { address: address_1 })?;
-        target.execute(&Instruction::SubroutineCall { address: address_2 })?;
-        target.execute(&Instruction::SubroutineReturn)?;
-
-        result.memory.stack.push(Memory::INDEX_PROGRAM_START);
-        result.memory.pc = address_1;
-
-        assert_eq!(target, result);
-        Ok(())
-    }
-
-    #[rstest]
-    fn execute_subroutine_return_twice(
-        mut target: Chip8,
-        mut result: Chip8,
-        #[values(0x123, 0x234)] address_1: u16,
-        #[values(0x123, 0x234)] address_2: u16,
-    ) -> Result<()> {
-        target.execute(&Instruction::SubroutineCall { address: address_1 })?;
-        target.execute(&Instruction::SubroutineCall { address: address_2 })?;
-        target.execute(&Instruction::SubroutineReturn)?;
-        target.execute(&Instruction::SubroutineReturn)?;
 
         assert_eq!(target, result);
         Ok(())
@@ -552,26 +432,44 @@ mod tests {
     }
 
     #[rstest]
-    fn execute_skip_if_vx_not_equals_vy_not_equals(
+    fn execute_set_vx_with_value(
         mut target: Chip8,
         mut result: Chip8,
         #[values(1, 2)] vx: usize,
+        #[values(0x12, 0x23)] value: u8,
     ) -> Result<()> {
-        target.execute(&Instruction::SkipIfVxNotEqualsVy { vx, vy: vx + 9 })?;
+        target.execute(&Instruction::SetVxWithValue { vx, value })?;
 
-        result.memory.increment_pc();
+        result.memory.v[vx] = value;
 
         assert_eq!(target, result);
         Ok(())
     }
 
     #[rstest]
-    fn execute_skip_if_vx_not_vy_value_equals(
+    fn execute_add_vx_value(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+        #[values(0x12, 0x23)] value: u8,
+    ) -> Result<()> {
+        target.execute(&Instruction::AddVxValue { vx, value })?;
+
+        result.memory.v[vx] += value;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_add_vx_value_overflow(
         mut target: Chip8,
         mut result: Chip8,
         #[values(1, 2)] vx: usize,
     ) -> Result<()> {
-        target.execute(&Instruction::SkipIfVxNotEqualsVy { vx, vy: vx + 8 })?;
+        target.execute(&Instruction::AddVxValue { vx, value: 255 })?;
+
+        result.memory.v[vx] -= 1;
 
         assert_eq!(target, result);
         Ok(())
@@ -704,38 +602,6 @@ mod tests {
     }
 
     #[rstest]
-    fn execute_subtract_vy_with_vx(
-        mut target: Chip8,
-        mut result: Chip8,
-        #[values(3, 4)] vx: usize,
-        #[values(6, 7)] vy: usize,
-    ) -> Result<()> {
-        target.execute(&Instruction::SubtractVyWithVx { vx, vy })?;
-
-        result.memory.v[vx] = result.memory.v[vy] - result.memory.v[vx];
-        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 1;
-
-        assert_eq!(target, result);
-        Ok(())
-    }
-
-    #[rstest]
-    fn execute_subtract_vy_with_vx_overflow(
-        mut target: Chip8,
-        mut result: Chip8,
-        #[values(6, 7)] vx: usize,
-        #[values(3, 4)] vy: usize,
-    ) -> Result<()> {
-        target.execute(&Instruction::SubtractVyWithVx { vx, vy })?;
-
-        result.memory.v[vx] = result.memory.v[vy].wrapping_sub(result.memory.v[vx]);
-        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 0;
-
-        assert_eq!(target, result);
-        Ok(())
-    }
-
-    #[rstest]
     fn execute_shift_1_right_vx_with_vy_compat_ignore_vy(
         #[with(Config { shift_ignores_vy: true, ..Config::default() })] mut target: Chip8,
         #[with(target.clone())] mut result: Chip8,
@@ -769,6 +635,38 @@ mod tests {
     }
 
     #[rstest]
+    fn execute_subtract_vy_with_vx(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(3, 4)] vx: usize,
+        #[values(6, 7)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SubtractVyWithVx { vx, vy })?;
+
+        result.memory.v[vx] = result.memory.v[vy] - result.memory.v[vx];
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 1;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_subtract_vy_with_vx_overflow(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(6, 7)] vx: usize,
+        #[values(3, 4)] vy: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SubtractVyWithVx { vx, vy })?;
+
+        result.memory.v[vx] = result.memory.v[vy].wrapping_sub(result.memory.v[vx]);
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 0;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
     fn execute_shift_1_left_vx_with_vy_compat_ignore_vy(
         #[with(Config { shift_ignores_vy: true, ..Config::default() })] mut target: Chip8,
         #[with(target.clone())] mut result: Chip8,
@@ -798,6 +696,46 @@ mod tests {
 
         assert_eq!(target, result);
 
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_skip_if_vx_not_equals_vy_not_equals(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SkipIfVxNotEqualsVy { vx, vy: vx + 9 })?;
+
+        result.memory.increment_pc();
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_skip_if_vx_not_vy_value_equals(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SkipIfVxNotEqualsVy { vx, vy: vx + 8 })?;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_set_i_with_value(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0x123, 0x234)] value: u16,
+    ) -> Result<()> {
+        target.execute(&Instruction::SetIWithValue { value })?;
+
+        result.memory.i = value;
+
+        assert_eq!(target, result);
         Ok(())
     }
 
@@ -844,6 +782,67 @@ mod tests {
 
         assert_eq!(target, result);
         assert_eq!(target.memory.v[vx] & (!value), 0);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_display_draw(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(2, 3, 7)] vx: usize,
+        #[values(3, 3, 6)] vy: usize,
+    ) -> Result<()> {
+        let x = target.memory.v[vx] as usize;
+        let y = target.memory.v[vy] as usize;
+        let width = usize::min(8, Memory::SIZE_DISPLAY_WIDTH - x);
+
+        target.memory.ram[target.memory.i as usize + 0] = 0b10111111;
+        target.memory.ram[target.memory.i as usize + 1] = 0b01001001;
+
+        target.execute(&Instruction::DisplayDraw { vx, vy, height: 2 })?;
+
+        result.memory.ram[result.memory.i as usize + 0] = 0b10111111;
+        result.memory.ram[result.memory.i as usize + 1] = 0b01001001;
+        result.memory.vram[y][x..][..width]
+            .copy_from_slice(&[true, false, true, true, true, true, true, true][..width]);
+        if y + 1 < Memory::SIZE_DISPLAY_HEIGHT {
+            result.memory.vram[y + 1][x..][..width]
+                .copy_from_slice(&[false, true, false, false, true, false, false, true][..width]);
+        }
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 0;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_display_draw_overdraw(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(2, 3, 7)] vx: usize,
+        #[values(3, 3, 6)] vy: usize,
+    ) -> Result<()> {
+        let x = target.memory.v[vx] as usize;
+        let y = target.memory.v[vy] as usize;
+        let width = usize::min(8, Memory::SIZE_DISPLAY_WIDTH - x);
+
+        target.memory.ram[target.memory.i as usize + 0] = 0b10111111;
+        target.memory.ram[target.memory.i as usize + 1] = 0b01001001;
+        target.memory.vram[y][x] = true;
+
+        target.execute(&Instruction::DisplayDraw { vx, vy, height: 2 })?;
+
+        result.memory.ram[result.memory.i as usize + 0] = 0b10111111;
+        result.memory.ram[result.memory.i as usize + 1] = 0b01001001;
+        result.memory.vram[y][x..][..width]
+            .copy_from_slice(&[false, false, true, true, true, true, true, true][..width]);
+        if y + 1 < Memory::SIZE_DISPLAY_HEIGHT {
+            result.memory.vram[y + 1][x..][..width]
+                .copy_from_slice(&[false, true, false, false, true, false, false, true][..width]);
+        }
+        result.memory.v[Memory::INDEX_FLAG_REGISTER] = 1;
+
+        assert_eq!(target, result);
         Ok(())
     }
 
@@ -908,6 +907,20 @@ mod tests {
         target.execute(&Instruction::SetVxWithDt { vx })?;
 
         result.memory.v[vx] = result.memory.dt;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_set_vx_with_next_pressed_key_blocking(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0, 1)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SetVxWithNextPressedKeyBlocking { vx })?;
+
+        result.state = State::WaitingForKey { vx };
 
         assert_eq!(target, result);
         Ok(())
@@ -1006,17 +1019,4 @@ mod tests {
         Ok(())
     }
 
-    #[rstest]
-    fn execute_set_vx_with_next_pressed_key_blocking(
-        mut target: Chip8,
-        mut result: Chip8,
-        #[values(0, 1)] vx: usize,
-    ) -> Result<()> {
-        target.execute(&Instruction::SetVxWithNextPressedKeyBlocking { vx })?;
-
-        result.state = State::WaitingForKey { vx };
-
-        assert_eq!(target, result);
-        Ok(())
-    }
 }
