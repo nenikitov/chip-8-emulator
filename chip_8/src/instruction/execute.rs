@@ -2,6 +2,7 @@ use super::*;
 use crate::chip_8::*;
 use thiserror::Error;
 
+/// Errors encountered during execution of an instruction.
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ExecuteError {
     #[error("instruction {0:?} is not supported")]

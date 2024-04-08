@@ -1,6 +1,7 @@
 use super::*;
 use thiserror::Error;
 
+/// Errors encountered during parsing of an opcode.
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ParseError {
     #[error("opcode {0:?} is unknown")]
@@ -95,6 +96,7 @@ pub enum Instruction {
     SubtractVxWithVy { vx: usize, vy: usize },
     /// Shift 1 bit to the right and store a value in `Vx`.
     /// Store shifted bit into `VF`.
+    ///
     /// **COMPATIBILITY:** Optionally copies Vy to Vx before shift.
     ///
     /// * Opcode: `8xy5`
@@ -108,6 +110,7 @@ pub enum Instruction {
     SubtractVyWithVx { vx: usize, vy: usize },
     /// Shift 1 bit to the left and store a value in `Vx`.
     /// Store shifted bit into `VF`.
+    ///
     /// **COMPATIBILITY:** Optionally copies Vy to Vx before shift.
     ///
     /// * Opcode: `8xyE`
@@ -124,6 +127,7 @@ pub enum Instruction {
     /// * Mnemonic: `LD I addr`
     SetIWithValue { value: u16 },
     /// Jump to the offset + value in `V0`.
+    ///
     /// **COMPATIBILITY:** Optionally use `Vx` instead of `V0`.
     ///
     /// * Opcode: `Bnnn`
@@ -171,6 +175,7 @@ pub enum Instruction {
     /// * Mnemonic: `LD ST Vx`
     SetStWithVx { vx: usize },
     /// Add `I` and `Vx` and store in `I`.
+    ///
     /// **COMPATIBILITY:** Optionally stores if resulting memory is outside in `VF`.
     ///
     /// * Opcode: `Fx1E`

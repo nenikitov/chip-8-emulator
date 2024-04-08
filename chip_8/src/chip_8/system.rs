@@ -4,6 +4,7 @@ use crate::instruction::*;
 
 use super::*;
 
+/// Combines [`ParseError`] and [`ExecuteError`]
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum InstructionError {
     #[error("parse error {0}")]
