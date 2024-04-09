@@ -114,22 +114,28 @@ const FONT: [[u8; 5]; 16] = [
     ],
 ];
 
+/// Memory available to CHIP-8.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Memory {
     /// RAM.
+    ///
     /// * `0x000..=0x1FFF` is unused (except the font).
     /// * Font is stored in `0x50..=0x9F` by convention.
     /// * Programs are stored in `0x200..`.
     pub ram: [u8; Self::SIZE_RAM],
     /// Display buffer containing the state of each pixel.
+    ///
+    /// Stored in `[y][x]` format.
     pub vram: [[bool; Self::SIZE_DISPLAY_WIDTH]; Self::SIZE_DISPLAY_HEIGHT],
     /// Indexes in RAM of current subroutines.
     pub stack: Vec<u16>,
     /// Index in RAM where current execution is.
     pub pc: u16,
-    /// Timer to stop execution when non 0. Should decrement at 60Hz rate.
+    /// Timer to stop execution when non 0.
+    // Should decrement at 60Hz rate.
     pub dt: u8,
-    /// Timer play beep when non 0. Should decrement at 60Hz rate.
+    /// Timer play beep when non 0.
+    /// Should decrement at 60Hz rate.
     pub st: u8,
     /// Index register often used to store memory addresses.
     pub i: u16,

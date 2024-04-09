@@ -4,6 +4,7 @@ use crate::instruction::*;
 
 use super::*;
 
+/// Combines [`ParseError`] and [`ExecuteError`]
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum InstructionError {
     #[error("parse error {0}")]
@@ -33,6 +34,7 @@ pub(crate) enum State {
     },
 }
 
+/// Main structure used to emulate CHIP-8.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Chip8 {
     pub(crate) config: Config,
