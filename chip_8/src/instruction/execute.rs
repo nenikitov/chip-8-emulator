@@ -195,6 +195,13 @@ impl ExecuteInstruction for Chip8 {
             Instruction::SetIWithCharacterAtVx { vx } => {
                 memory.i = Memory::INDEX_FONT_START as u16 + memory.v[vx] as u16 * 5;
             }
+            Instruction::SetRamAtIWithBinaryToDecimalAtVx { vx } => {
+                let value = memory.v[vx];
+
+                memory.ram[memory.i as usize + 0] = (value / 100) % 10;
+                memory.ram[memory.i as usize + 1] = (value / 10) % 10;
+                memory.ram[memory.i as usize + 2] = (value / 1) % 10;
+            }
         };
 
         Ok(())
@@ -1032,6 +1039,25 @@ mod tests {
         target.execute(&Instruction::SetIWithCharacterAtVx { vx })?;
 
         result.memory.i = Memory::INDEX_FONT_START as u16 + result.memory.v[vx] as u16 * 5;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_set_i_with_binary_to_decimal_at_vx(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0, 2)] vx: usize,
+        #[values(5, 17, 156)] value: u8,
+    ) -> Result<()> {
+        target.memory.v[vx] = value;
+        target.execute(&Instruction::SetRamAtIWithBinaryToDecimalAtVx { vx })?;
+
+        result.memory.v[vx] = value;
+        result.memory.ram[result.memory.i as usize + 0] = (value / 100) % 10;
+        result.memory.ram[result.memory.i as usize + 1] = (value / 10) % 10;
+        result.memory.ram[result.memory.i as usize + 2] = (value / 1) % 10;
 
         assert_eq!(target, result);
         Ok(())
