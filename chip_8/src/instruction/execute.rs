@@ -192,6 +192,9 @@ impl ExecuteInstruction for Chip8 {
                     memory.v[Memory::INDEX_FLAG_REGISTER] = 1;
                 }
             }
+            Instruction::SetIWithCharacterAtVx { vx } => {
+                memory.i = Memory::INDEX_FONT_START as u16 + memory.v[vx] as u16 * 5;
+            }
         };
 
         Ok(())
@@ -1015,6 +1018,20 @@ mod tests {
         target.execute(&Instruction::AddIWithVx { vx })?;
 
         result.memory.i = 0x1000 + result.memory.v[vx] as u16;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_set_i_with_character_at_vx(
+        mut target: Chip8,
+        mut result: Chip8,
+        #[values(0, 2)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::SetIWithCharacterAtVx { vx })?;
+
+        result.memory.i = Memory::INDEX_FONT_START as u16 + result.memory.v[vx] as u16 * 5;
 
         assert_eq!(target, result);
         Ok(())

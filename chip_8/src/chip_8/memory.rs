@@ -154,6 +154,7 @@ impl Memory {
 
     pub const INDEX_PROGRAM_START: u16 = 0x200;
 
+    pub const INDEX_FONT_START: usize = 0x50;
     pub const INDEX_FLAG_REGISTER: usize = Self::SIZE_REGISTERS - 1;
 }
 
@@ -214,7 +215,7 @@ impl Memory {
     /// Reset all memory and load font into RAM.
     fn clear_memory(&mut self) {
         self.ram.iter_mut().for_each(|e| *e = 0);
-        self.ram[0x50..=0x9F].copy_from_slice(FONT.flatten());
+        self.ram[Memory::INDEX_FONT_START..][..16 * 5].copy_from_slice(FONT.flatten());
         self.clear_vram();
         self.stack.clear();
         self.v.iter_mut().for_each(|e| *e = 0);
@@ -266,8 +267,14 @@ mod tests {
     fn default_initializes_ram() -> Result<()> {
         let target = Memory::default();
 
-        assert_eq!(target.ram[0..0x50], [0; 0x50]);
-        assert_eq!(&target.ram[0x50..=0x9F], FONT.flatten());
+        assert_eq!(
+            target.ram[0..Memory::INDEX_FONT_START],
+            [0; Memory::INDEX_FONT_START]
+        );
+        assert_eq!(
+            &target.ram[Memory::INDEX_FONT_START..][..16 * 5],
+            FONT.flatten()
+        );
         assert_eq!(
             target.ram[0xA0..Memory::SIZE_RAM],
             [0; Memory::SIZE_RAM - 0xA0]

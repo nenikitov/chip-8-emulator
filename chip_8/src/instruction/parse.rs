@@ -181,6 +181,11 @@ pub enum Instruction {
     /// * Opcode: `Fx1E`
     /// * Mnemonic: `ADD I Vx`
     AddIWithVx { vx: usize },
+    /// Set `I` to font character in `Vx`.
+    ///
+    /// * Opcode: `Fx29`
+    /// * Mnemonic: `LD F Vx`
+    SetIWithCharacterAtVx { vx: usize },
 }
 
 impl TryFrom<Opcode> for Instruction {
@@ -228,6 +233,7 @@ impl TryFrom<Opcode> for Instruction {
             (0xF, _, 0x1, 0x5) => Instruction::SetDtWithVx { vx: x },
             (0xF, _, 0x1, 0x8) => Instruction::SetStWithVx { vx: x },
             (0xF, _, 0x1, 0xE) => Instruction::AddIWithVx { vx: x },
+            (0xF, _, 0x2, 0x9) => Instruction::SetIWithCharacterAtVx { vx: x },
             _ => return Err(ParseError::UnknownOpcode(value)),
         };
 
@@ -594,6 +600,17 @@ mod tests {
         assert_eq!(
             Instruction::try_from(Opcode::from(opcode! { i: 0xF, x: vx, nn: 0x1E })),
             Ok(Instruction::AddIWithVx { vx })
+        );
+        Ok(())
+    }
+
+    #[rstest]
+    fn from_opcode_fx29_returns_set_i_with_character_at_vx(
+        #[values(1, 2)] vx: usize,
+    ) -> Result<()> {
+        assert_eq!(
+            Instruction::try_from(Opcode::from(opcode! { i: 0xF, x: vx, nn: 0x29 })),
+            Ok(Instruction::SetIWithCharacterAtVx { vx })
         );
         Ok(())
     }
