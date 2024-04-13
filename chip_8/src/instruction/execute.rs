@@ -202,6 +202,20 @@ impl ExecuteInstruction for Chip8 {
                 memory.ram[memory.i as usize + 1] = (value / 10) % 10;
                 memory.ram[memory.i as usize + 2] = (value / 1) % 10;
             }
+            Instruction::StoreRegistersUntil { vx } => {
+                memory.ram[memory.i as usize..][..=vx].copy_from_slice(&memory.v[..=vx]);
+
+                if config.store_load_modifies_i {
+                    memory.i += vx as u16 + 1;
+                }
+            }
+            Instruction::LoadRegistersUntil { vx } => {
+                memory.v[..=vx].copy_from_slice(&memory.ram[memory.i as usize..][..=vx]);
+
+                if config.store_load_modifies_i {
+                    memory.i += vx as u16 + 1;
+                }
+            }
         };
 
         Ok(())
@@ -228,7 +242,7 @@ mod tests {
         chip.memory.stack.push(Memory::INDEX_PROGRAM_START);
         chip.memory.dt = 60;
         chip.memory.st = 10;
-        chip.memory.i = 100;
+        chip.memory.i = 700;
         chip.memory.v = [0, 1, 2, 3, 4, 5, 31, 59, 0, 1, 2, 3, 4, 5, 30, 60];
         chip.memory.keys = [
             true, false, true, false, true, false, true,
@@ -1058,6 +1072,84 @@ mod tests {
         result.memory.ram[result.memory.i as usize + 0] = (value / 100) % 10;
         result.memory.ram[result.memory.i as usize + 1] = (value / 10) % 10;
         result.memory.ram[result.memory.i as usize + 2] = (value / 1) % 10;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_store_registers_until_compat_keep_i(
+        #[with(Config { store_load_modifies_i: false, ..Config::default() })] mut target: Chip8,
+        #[with(target.clone())] mut result: Chip8,
+        #[values(0, 2, 4)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::StoreRegistersUntil { vx })?;
+
+        for i in 0..=vx {
+            result.memory.ram[result.memory.i as usize + i] = result.memory.v[i];
+        }
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_store_registers_until_compat_modify_i(
+        #[with(Config { store_load_modifies_i: true, ..Config::default() })] mut target: Chip8,
+        #[with(target.clone())] mut result: Chip8,
+        #[values(0, 2, 4)] vx: usize,
+    ) -> Result<()> {
+        target.execute(&Instruction::StoreRegistersUntil { vx })?;
+
+        for i in 0..=vx {
+            result.memory.ram[result.memory.i as usize + i] = result.memory.v[i];
+        }
+        result.memory.i += vx as u16 + 1;
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_load_registers_until_compat_keep_i(
+        #[with(Config { store_load_modifies_i: false, ..Config::default() })] mut target: Chip8,
+        #[with(target.clone())] mut result: Chip8,
+        #[values(0, 2, 4)] vx: usize,
+    ) -> Result<()> {
+        target.memory.ram[target.memory.i as usize..][..16].copy_from_slice(&[
+            20, 30, 40, 50, 60, 10, 20, 45, 32, 54, 78, 91, 32, 45, 57, 1,
+        ]);
+        target.execute(&Instruction::LoadRegistersUntil { vx })?;
+
+        result.memory.ram[result.memory.i as usize..][..16].copy_from_slice(&[
+            20, 30, 40, 50, 60, 10, 20, 45, 32, 54, 78, 91, 32, 45, 57, 1,
+        ]);
+        for i in 0..=vx {
+            result.memory.v[i] = result.memory.ram[result.memory.i as usize + i];
+        }
+
+        assert_eq!(target, result);
+        Ok(())
+    }
+
+    #[rstest]
+    fn execute_load_registers_until_compat_modify_i(
+        #[with(Config { store_load_modifies_i: true, ..Config::default() })] mut target: Chip8,
+        #[with(target.clone())] mut result: Chip8,
+        #[values(0, 2, 4)] vx: usize,
+    ) -> Result<()> {
+        target.memory.ram[target.memory.i as usize..][..16].copy_from_slice(&[
+            20, 30, 40, 50, 60, 10, 20, 45, 32, 54, 78, 91, 32, 45, 57, 1,
+        ]);
+        target.execute(&Instruction::LoadRegistersUntil { vx })?;
+
+        result.memory.ram[result.memory.i as usize..][..16].copy_from_slice(&[
+            20, 30, 40, 50, 60, 10, 20, 45, 32, 54, 78, 91, 32, 45, 57, 1,
+        ]);
+        for i in 0..=vx {
+            result.memory.v[i] = result.memory.ram[result.memory.i as usize + i];
+        }
+        result.memory.i += vx as u16 + 1;
 
         assert_eq!(target, result);
         Ok(())
