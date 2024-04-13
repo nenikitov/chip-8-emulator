@@ -16,10 +16,10 @@ use chip_8::Chip8;
 use ui::AppWidget;
 use waiter::Waiter;
 
-const INSTRUCTIONS_PER_SECOND: usize = 10;
+const INSTRUCTIONS_PER_SECOND: usize = 50;
 const FRAMES_PER_SECOND: usize = 60;
 
-const ROM_PATH: &str = "./roms/test_opcode.ch8";
+const ROM_PATH: &str = "./roms/3-corax+.ch8";
 
 fn main() -> Result<(), i32> {
     let rom = fs::read(ROM_PATH).map_err(|_| 2)?;
