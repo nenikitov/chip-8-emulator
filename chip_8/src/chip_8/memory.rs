@@ -215,7 +215,7 @@ impl Memory {
     /// Reset all memory and load font into RAM.
     fn clear_memory(&mut self) {
         self.ram.iter_mut().for_each(|e| *e = 0);
-        self.ram[Memory::INDEX_FONT_START..][..16 * 5].copy_from_slice(FONT.flatten());
+        self.ram[Memory::INDEX_FONT_START..][..16 * 5].copy_from_slice(FONT.as_flattened());
         self.clear_vram();
         self.stack.clear();
         self.v.iter_mut().for_each(|e| *e = 0);

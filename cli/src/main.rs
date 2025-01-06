@@ -16,10 +16,10 @@ use chip_8::Chip8;
 use ui::AppWidget;
 use waiter::Waiter;
 
-const INSTRUCTIONS_PER_SECOND: usize = 50;
+const INSTRUCTIONS_PER_SECOND: usize = 2000;
 const FRAMES_PER_SECOND: usize = 60;
 
-const ROM_PATH: &str = "./roms/3-corax+.ch8";
+const ROM_PATH: &str = "./roms/7-beep.ch8";
 
 fn main() -> Result<(), i32> {
     let rom = fs::read(ROM_PATH).map_err(|_| 2)?;
@@ -49,11 +49,33 @@ fn main() -> Result<(), i32> {
                     ui::end_ui().expect("draw end");
                     break;
                 }
+
                 terminal
                     .draw(|f| {
                         f.render_widget(AppWidget { app: &app }, f.size());
                     })
                     .expect("draw loop");
+            }
+
+            waiter.end();
+            waiter.cycle();
+        })
+    };
+
+    let clock_handle = {
+        let app_clock = app.clone();
+        let mut waiter = Waiter::new(Duration::from_secs_f64(1f64 / 60f64));
+
+        thread::spawn(move || loop {
+            waiter.start();
+
+            {
+                let mut app = app_clock.lock().expect("handle on the app in clock loop");
+                if app.state() == ui::AppState::End {
+                    break;
+                }
+
+                app.update_clock();
             }
 
             waiter.end();
@@ -84,6 +106,7 @@ fn main() -> Result<(), i32> {
     };
 
     draw_handle.join().map_err(|_| 2)?;
+    clock_handle.join().map_err(|_| 2)?;
 
     Ok(())
 }

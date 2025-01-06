@@ -1,4 +1,3 @@
-#![feature(slice_flatten)]
 #![warn(clippy::pedantic)]
 #![allow(
     unused,

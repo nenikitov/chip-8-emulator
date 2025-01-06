@@ -22,6 +22,10 @@ pub enum AppState {
     End,
 }
 
+const CONTROLS: [char; 16] = [
+    'x', '1', '2', '3', 'q', 'w', 'e', 'a', 's', 'd', 'z', 'c', '4', 'r', 'f', 'v',
+];
+
 pub struct App {
     pub(crate) chip: Chip8,
     pub(crate) state: AppState,
@@ -48,9 +52,19 @@ impl App {
 
         if poll(Duration::ZERO).expect("can poll terminal events") {
             if let Event::Key(key) = event::read().expect("can read events") {
+                if let KeyCode::Char(char) = key.code {
+                    if let Some(code) = CONTROLS.iter().position(|&c| c == char) {
+                        match key.kind {
+                            KeyEventKind::Press => self.chip.press_key(code as u8).unwrap(),
+                            KeyEventKind::Release => self.chip.unpress_key(code as u8).unwrap(),
+                            _ => (),
+                        }
+                    }
+                }
+
                 match (key.kind, key.code) {
-                    (KeyEventKind::Press, KeyCode::Char('q')) => self.state = AppState::End,
-                    (KeyEventKind::Press, KeyCode::Char('p')) => {
+                    (KeyEventKind::Press, KeyCode::F(1)) => self.state = AppState::End,
+                    (KeyEventKind::Press, KeyCode::F(2)) => {
                         self.state = if self.state == AppState::InProgress {
                             AppState::Pause
                         } else {
@@ -62,9 +76,17 @@ impl App {
             }
         }
 
-        if let Err(e) = self.chip.advance_instruction() {
-            panic!("{}", e);
-        };
+        if self.state == AppState::InProgress {
+            if let Err(e) = self.chip.advance_instruction() {
+                panic!("{}", e);
+            };
+        }
+    }
+
+    pub fn update_clock(&mut self) {
+        if self.state == AppState::InProgress {
+            self.chip.advance_timer();
+        }
     }
 
     pub fn state(&self) -> AppState {

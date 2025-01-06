@@ -6,6 +6,8 @@ mod stats;
 mod widget;
 
 use crossterm::{
+    cursor::Show,
+    event::{KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags},
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
 };
@@ -16,15 +18,26 @@ pub use app::*;
 pub use widget::*;
 
 pub fn start_ui() -> Result<Terminal<CrosstermBackend<Stdout>>, io::Error> {
-    enable_raw_mode()?;
-    stdout().execute(EnterAlternateScreen)?;
+    let mut stdout = stdout();
 
-    Terminal::new(CrosstermBackend::new(stdout()))
+    enable_raw_mode()?;
+    stdout.execute(EnterAlternateScreen)?;
+    stdout.execute(PushKeyboardEnhancementFlags(
+        KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+            | KeyboardEnhancementFlags::REPORT_EVENT_TYPES,
+    ))?;
+
+    Terminal::new(CrosstermBackend::new(stdout))
 }
 
 pub fn end_ui() -> Result<(), io::Error> {
+    let mut stdout = stdout();
+
     disable_raw_mode()?;
-    stdout().execute(LeaveAlternateScreen)?;
+    stdout.execute(LeaveAlternateScreen)?;
+    stdout.execute(PopKeyboardEnhancementFlags)?;
+    stdout.execute(Show)?;
+
     Ok(())
 }
 
